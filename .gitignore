@@ -1,32 +1,27 @@
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+/.vs
+/out/build/x64-Debug (默认值)
+/out/build/Linux-GCC-Debug
+/CMakeSettings.json
+/Sim/include/HttpParser.h
+/Sim/include/openssl
+/doc/libssh2-master-0525
+/doc/win-sshd-master
+/doc/libssh2-master-0525.zip
+/doc/ssh-rfc.rar
+/doc/win-sshd-master(1).zip
+/res/WWW
+/res/CMakeLists.txt
+/out
+/CMakePresets.json
+/doc/ssh-rfc
