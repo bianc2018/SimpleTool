@@ -3,15 +3,14 @@
 */
 #ifndef SIM_NET_BASE_HPP_
 #define SIM_NET_BASE_HPP_
-#include <string>
-
+#include "Types.hpp"
 #include "RefObject.hpp"
 
 //通道类型
-//TCP
+//TCP 1 or UDP 0
 #define SIM_NET_CHANNEL_TYPE_TCP 0x01
-//UDP
-#define SIM_NET_CHANNEL_TYPE_UDP 0x02
+//IPV6 1 or IPV4 0
+#define SIM_NET_CHANNEL_TYPE_IPV6 0x02
 //基于SSL的
 #define SIM_NET_CHANNEL_TYPE_SSL 0x04
 
@@ -26,9 +25,10 @@ namespace sim
             E_NET_ERROR_FAILED = -1,
             E_NET_ERROR_PARAM =  -2,//参数异常
             E_NET_ERROR_TIMEOUT =  -3,//操作超时
+            E_NET_ERROR_UNDEF = -3,//操作未定义
         };
 
-        //typedef int SOCKET;
+        typedef UInt64 TypeNetChannel;
 
         /**
          * @brief IP地址类型枚举
@@ -49,9 +49,9 @@ namespace sim
             // IP地址类型
             EnumIpAddrType eType;
             // IP地址字符串
-            std::string strIp;
+            String strIp;
             // 端口号
-            unsigned short usPort;
+            UInt16 usPort;
         };
 
         //声明前置
@@ -65,22 +65,21 @@ namespace sim
             //处理基层协议的回调事件
 
             //链接事件，eConnResult 链接结果
-            virtual void OnConnect(sim::RefWeakObject<Channel> ch, EnumNetError eConnResult) = 0;
+            virtual void OnConnect(sim::RefWeakObject<Channel> ch, EnumNetError eConnResult) {}
 
             //接受链接事件，ch_srv 接受链接的服务通道，ch 生成的链接
             //E_NET_ERROR_SUCCESS !EnumNetError 协议栈内部回收ch 拒绝链接
-            virtual EnumNetError OnAccept(sim::RefWeakObject<Channel> ch_srv, sim::RefWeakObject<Channel> ch) = 0;
+            virtual EnumNetError OnAccept(sim::RefWeakObject<Channel> ch_srv, sim::RefWeakObject<Channel> ch) {return E_NET_ERROR_UNDEF;}
 
             //链接关闭事件，eCloseResult 关闭原因
-            virtual void OnClose(sim::RefWeakObject<Channel> ch, EnumNetError eCloseResult) = 0;
+            virtual void OnClose(sim::RefWeakObject<Channel> ch, EnumNetError eCloseResult) {};
 
             //收到报文,stIpAddr 来源地址
-            virtual EnumNetError OnReaded(sim::RefWeakObject<Channel> ch, RefBuff& stBuff, StruIpAddr stIpAddr) = 0;
+            virtual EnumNetError OnReaded(sim::RefWeakObject<Channel> ch, RefBuff& stBuff, StruIpAddr stIpAddr){ return E_NET_ERROR_UNDEF; };
 
             //发送报文成功
-            virtual EnumNetError OnWrited(sim::RefWeakObject<Channel> ch, RefBuff& stBuff) = 0;
+            virtual EnumNetError OnWrited(sim::RefWeakObject<Channel> ch, RefBuff& stBuff) { return E_NET_ERROR_UNDEF; };
         };
-
 
         //网络通道基类
         //负责基本的数据交互
@@ -113,7 +112,7 @@ namespace sim
 
         public:
             //返回类型，见SIM_NET_CHANNEL_TYPE_定义
-            virtual unsigned int Type() = 0;
+            virtual TypeNetChannel Type() = 0;
 
             //是否已经链接
             virtual bool IsConnect() = 0;
@@ -127,11 +126,15 @@ namespace sim
         class Manager
         {
         public:
+            //显式初始化
+            virtual EnumNetError Init() = 0;
+            virtual EnumNetError UnInit() = 0;
+
             //创建通道
             //typeflag  类型，见SIM_NET_CHANNEL_TYPE_定义
             //pro       在这个通道上面的网络协议，可以为空
             //创建失败返回空
-            virtual sim::RefObject<Channel> CreateChannel(unsigned int typeflag, Protocol* pro = NULL) = 0;
+            virtual sim::RefObject<Channel> CreateChannel(TypeNetChannel typeflag, Protocol* pro = NULL) = 0;
 
             //主动解绑通道，Manager不再管理这个通道，之后ch不可用
             virtual EnumNetError UnBindChannel(sim::RefObject<Channel> ch) = 0;

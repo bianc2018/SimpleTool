@@ -3,11 +3,10 @@
 */
 #ifndef SIM_SOCKET_HPP_
 #define SIM_SOCKET_HPP_
-
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
-    #ifndef OS_WINDOWS
-        #define OS_WINDOWS
-    #endif
+#define _WINSOCKAPI_
+#include "NetBase.hpp"
+#include <vector>
+#if defined(OS_WINDOWS)
 	#ifndef _WINSOCK_DEPRECATED_NO_WARNINGS
 		#define _WINSOCK_DEPRECATED_NO_WARNINGS 1
 	#endif
@@ -17,7 +16,8 @@
 	#define WIN32_LEAN_AND_MEAN  
 	#endif
 	#include <WinSock2.h>
-	
+	#include <ws2tcpip.h>
+
     #ifndef INVALID_SOCKET
         #define INVALID_SOCKET (SOCKET)(~0)
     #endif
@@ -40,10 +40,7 @@
             }
         };
     }
-#elif defined(linux) || defined(__linux) || defined(__linux__)
-    #ifndef OS_LINUX
-        #define OS_LINUX
-    #endif  
+#elif defined(OS_LINUX)
 	#include <errno.h>
     #include <stdio.h>
     #include <string.h>
@@ -58,12 +55,7 @@
     #ifndef INVALID_SOCKET
         #define INVALID_SOCKET -1
     #endif
-#else
-    #error "不支持的平台"
 #endif
-
-
-#include "NetBase.hpp"
 
 namespace sim
 {
@@ -80,50 +72,31 @@ namespace sim
 		class  SocketUtil
 		{
 		public:
-			// SOCK_STREAM tcp SOCK_DGRAM udp
-			static SOCKET CreateSocket(SockType type);
-
+			
 			static SOCKET CreateSocket(int af, int type, int protocol);
 
+			static SOCKET CreateSocket(TypeNetChannel typeflag);
 		public:
 			//封装的函数 同步接口
-			//返回 false 标识终止
-			typedef bool(*GetHostByNameCallBack)(const char* ip, void* pdata);
-			static EnumNetError GetHostByName(const char* szHost,
-				GetHostByNameCallBack cb, void* pdata);
+			static bool GetIpAddrList(const char* szHost,tVector<StruIpAddr>&vAddrs, const char* szService=NULL);
 
-			static bool GetFirstIpByName(const char* szHost, char* ip_buff, int ip_buff_len);
-
-			static EnumNetError Connect(SOCKET socket,const char* ipaddr, unsigned short port);
-
-			/*
-				需要设置为非堵塞，否则返回异常
-			*/
-			static EnumNetError ConnectTimeOut(SOCKET socket, const char* ipaddr, unsigned short port, int wait_ms = -1);
-
-			static EnumNetError Bind(SOCKET socket, const char* ipaddr, unsigned short port);
+			static EnumNetError Bind(SOCKET socket, const StruIpAddr& stIpAddr);
 
 			static EnumNetError Listen(SOCKET socket, int backlog);
 
-			static EnumNetError Accept(SOCKET socket, SOCKET& client, int wait_ms = -1);
-
-			static EnumNetError Accept(SOCKET socket, SOCKET& client, char* remote_ip, unsigned int ip_len,
-				unsigned short* remote_port, int wait_ms = -1);
+			static EnumNetError Accept(SOCKET socket, SOCKET& client,StruIpAddr* pstIpAddr, int wait_ms = -1);
 
 			static EnumNetError Send(SOCKET socket, const char* data, unsigned int data_len, int wait_ms = -1);
 
 			static EnumNetError SendTo(SOCKET socket, const char* data, unsigned int data_len, \
-				const char* ipaddr, unsigned short port, int wait_ms = -1);
+				const StruIpAddr& stIpAddr, int wait_ms = -1);
 
 			static EnumNetError Recv(SOCKET socket, char* data, unsigned int data_len, int wait_ms = -1);
 
 			static EnumNetError Recvfrom(SOCKET socket, char* data, unsigned int data_len, \
-				char* remote_ip, unsigned int ip_len,
-				unsigned short* remote_port, int wait_ms = -1);
+				StruIpAddr& stIpAddr, int wait_ms = -1);
 
 			static EnumNetError Close(SOCKET socket);
-
-			/***** 2021/03/05 新增 超时接口 ******/
 
 			//等待时间 ,int wait_ms=-1
 			enum WAIT_TYPE
@@ -132,15 +105,14 @@ namespace sim
 				WAIT_WRITE,
 			};
 			static EnumNetError WaitTimeOut(SOCKET socket, WAIT_TYPE type, int wait_ms);
+
+			static EnumNetError Connect(SOCKET socket, const StruIpAddr& stIpAddr, int wait_ms=-1);
 		public:
 			static void Init();
 
-			//结构体转换
-			static bool IpToAddressV4(const char* ipaddr, unsigned short port
-				, struct sockaddr_in* out_addr);
-			static bool AddressToIpV4(const struct sockaddr_in* addr,
-				char* ipaddr, unsigned int ipaddr_len, unsigned short* port
-			);
+			//指针需要释放
+			static bool IpToSockAddr(const StruIpAddr &stIpAddr,struct sockaddr*p);
+			static bool SockAddrToIp(const struct sockaddr* addr, StruIpAddr& stIpAddr);
 
 			static bool SetNonBlock(SOCKET socket, bool is_non_block);
 
@@ -155,166 +127,98 @@ namespace sim
 		private:
 
 		};
+		
 
-		inline SOCKET SocketUtil::CreateSocket(SockType type)
-		{
-			SocketUtil::Init();
-			if (type == TCP)
-				return socket(AF_INET, SOCK_STREAM, 0);
-			else if (type == UDP)
-				return  socket(AF_INET, SOCK_DGRAM, 0);
-			else
-				return INVALID_SOCKET;
-		}
 		inline SOCKET SocketUtil::CreateSocket(int af, int type, int protocol)
 		{
 			Init();
 			return socket(af, type, protocol);
 		}
+		inline SOCKET SocketUtil::CreateSocket(TypeNetChannel typeflag)
+		{
+			int af= AF_INET;
+			int type= SOCK_DGRAM;
+			int protocol=0;
+			if (typeflag & SIM_NET_CHANNEL_TYPE_TCP)
+			{
+				type = SOCK_STREAM;
+			}
+			if (typeflag & SIM_NET_CHANNEL_TYPE_IPV6)
+			{
+				af = AF_INET6;
+			}
+			return CreateSocket(af,type,protocol);
+		}
+
+		inline bool SocketUtil::GetIpAddrList(const char* szHost, tVector<StruIpAddr>& vAddrs, const char* szService)
+		{
+			if (!szHost)
+				return false;
+
+			Init();
+
+			struct addrinfo hints, * res, * p;
+			int status;
+			char ipstr[INET6_ADDRSTRLEN];
+
+			memset(&hints, 0, sizeof hints);
+			hints.ai_family = AF_UNSPEC; // AF_INET 或 AF_INET6 来指定 IPv4 或 IPv6
+			hints.ai_socktype = 0;// SOCK_STREAM; // SOCK_DGRAM 用于 UDP
+
+			if ((status = getaddrinfo(szHost, szService, &hints, &res)) != 0) {
+				fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+				return false;
+			}
+
+			bool bOk = true;
+			for (p = res; p != NULL; p = p->ai_next) 
+			{
+				StruIpAddr stIpaddr;
+				if (!SockAddrToIp(p->ai_addr, stIpaddr))
+				{
+					bOk = false;
+					break;
+				}
+				vAddrs.push_back(stIpaddr);
+			}
+
+			freeaddrinfo(res); // 释放链表
+			return bOk;
+		}
 		
-		inline EnumNetError SocketUtil::GetHostByName(const char* szHost, GetHostByNameCallBack cb, void* pdata)
+		inline EnumNetError SocketUtil::Bind(SOCKET socket, const StruIpAddr& stIpAddr)
 		{
-			if (NULL == szHost || NULL == cb)
-			{
-				return E_NET_ERROR_PARAM;//
-			}
-			hostent* pHost = gethostbyname(szHost);
-			if (NULL == pHost)
-			{
-				return E_NET_ERROR_FAILED;
-			}
-			int i;
-			in_addr addr;
-			for (i = 0;; i++)
-			{
-				char* p = pHost->h_addr_list[i];
-				if (p == NULL)
-				{
-					break;
-				}
-#ifdef OS_WINDOWS
-				memcpy(&addr.S_un.S_addr, p, pHost->h_length);
-				const char* strIp = ::inet_ntoa(addr);
-#endif // OS_WINDOWS
-#ifdef OS_LINUX
-				const socklen_t buff_size = 128;
-				char buff[buff_size] = { 0 };
-				const char* strIp = inet_ntop(pHost->h_addrtype,
-					p, buff, buff_size);
-#endif 
-				if (!cb(strIp, pdata))
-					return E_NET_ERROR_FAILED;
-			}
-			return E_NET_ERROR_SUCCESS;
-		}
-		inline bool SocketUtil::GetFirstIpByName(const char* szHost, char* ip_buff, int ip_buff_len)
-		{
-			if (NULL == szHost)
-			{
-				return E_NET_ERROR_PARAM;//
-			}
-			hostent* pHost = gethostbyname(szHost);
-			if (NULL == pHost)
-			{
-				return E_NET_ERROR_FAILED;
-			}
-			int i;
-			in_addr addr;
-			for (i = 0;; i++)
-			{
-				char* p = pHost->h_addr_list[i];
-				if (p == NULL)
-				{
-					break;
-				}
-#ifdef OS_WINDOWS
-				memcpy(&addr.S_un.S_addr, p, pHost->h_length);
-				const char* strIp = ::inet_ntoa(addr);
-#endif // OS_WINDOWS
-#ifdef OS_LINUX
-				const socklen_t buff_size = 128;
-				char buff[buff_size] = { 0 };
-				const char* strIp = inet_ntop(pHost->h_addrtype,
-					p, buff, buff_size);
-#endif 
-				int ip_len = strlen(strIp);
-				if (ip_len > ip_buff_len)
-					return E_NET_ERROR_PARAM;//
-				memcpy(ip_buff, strIp, ip_len);
-				return E_NET_ERROR_SUCCESS;
-			}
-			return E_NET_ERROR_FAILED;
-		}
-		inline EnumNetError SocketUtil::Connect(SOCKET socket, const char* ipaddr, unsigned short port)
-		{
-			/*int wait_ret = WaitTimeOut(WAIT_READ, wait_ms);
-			if (wait_ret != SOCK_SUCCESS)
-			{
-				return wait_ret;
-			}*/
-
 			//创建sockaddr_in结构体变量
 			struct sockaddr_in serv_addr;
-			if (!IpToAddressV4(ipaddr, port, &serv_addr))
+			memset(&serv_addr, 0, sizeof(serv_addr));
+			struct sockaddr_in6 serv_addr6;
+			memset(&serv_addr6, 0, sizeof(serv_addr6));
+			struct sockaddr* addr_name = NULL;
+			int addr_namelen = 0;
+			if (stIpAddr.eType == E_IP_ADDR_TYPE_IPV6)
+			{
+				if (!IpToSockAddr(stIpAddr, (struct sockaddr*)&serv_addr6))
+					return E_NET_ERROR_PARAM;
+				addr_name = (struct sockaddr*)&serv_addr6;
+				addr_namelen = sizeof(serv_addr6);
+			}
+			else if (stIpAddr.eType == E_IP_ADDR_TYPE_IPV4)
+			{
+
+				if (!IpToSockAddr(stIpAddr, (struct sockaddr*)&serv_addr))
+					return E_NET_ERROR_PARAM;
+				addr_name = (struct sockaddr*)&serv_addr;
+				addr_namelen = sizeof(serv_addr);
+			}
+			else
+			{
 				return E_NET_ERROR_PARAM;
-			//将套接字和IP、端口绑定
-			int nRet =  ::connect(socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+			}
+
+			int nRet = ::bind(socket, (struct sockaddr*)addr_name, addr_namelen);
 			if (nRet < 0)
 			{
-				return E_NET_ERROR_FAILED;
-			}
-			return E_NET_ERROR_SUCCESS;
-		}
-		inline EnumNetError SocketUtil::ConnectTimeOut(SOCKET socket, const char* ipaddr, unsigned short port, int wait_ms)
-		{
-			if (wait_ms < 0)
-				return Connect(socket,ipaddr, port);
-			
-			EnumNetError eRet =  Connect(socket,ipaddr, port);
-			if (eRet == E_NET_ERROR_SUCCESS)
-			{
-				return E_NET_ERROR_SUCCESS;
-			}
-
-			eRet = WaitTimeOut(socket,WAIT_WRITE, wait_ms);
-			if (eRet != E_NET_ERROR_SUCCESS)
-			{
-				return eRet;
-			}
-
-			int error = 0;
-#ifdef OS_WINDOWS
-			int length = sizeof(error);
-#endif
-
-#ifdef OS_LINUX
-			socklen_t length = sizeof(error);
-#endif
-
-			if (getsockopt(socket, SOL_SOCKET, SO_ERROR, (char*)&error, &length) < 0)
-			{
-				//SIM_LERROR("get socket option failed");
-				return E_NET_ERROR_FAILED;
-			}
-
-			if (error != 0)
-			{
-				//SIM_LERROR("connection failed after select with the error:"<< error);
-				return E_NET_ERROR_FAILED;
-			}
-
-			return E_NET_ERROR_SUCCESS;
-		}
-		inline EnumNetError SocketUtil::Bind(SOCKET socket, const char* ipaddr, unsigned short port)
-		{
-			//创建sockaddr_in结构体变量
-			struct sockaddr_in serv_addr;
-			if (!IpToAddressV4(ipaddr, port, &serv_addr))
-				return E_NET_ERROR_FAILED;
-
-			int nRet = ::bind(socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-			if (nRet < 0)
-			{
+				perror("accept:");
 				return E_NET_ERROR_FAILED;
 			}
 			return E_NET_ERROR_SUCCESS;
@@ -328,23 +232,7 @@ namespace sim
 			}
 			return E_NET_ERROR_SUCCESS;
 		}
-		inline EnumNetError SocketUtil::Accept(SOCKET socket, SOCKET& client, int wait_ms)
-		{
-			/*if (NULL == s)
-				return SOCK_FAILURE;*/
-
-			EnumNetError wait_ret = WaitTimeOut(socket,WAIT_READ, wait_ms);
-			if (wait_ret != E_NET_ERROR_SUCCESS)
-			{
-				return wait_ret;
-			}
-
-			SOCKET accept_cli = ::accept(socket, NULL, 0);
-			client = accept_cli;
-			return E_NET_ERROR_SUCCESS;
-		}
-		inline EnumNetError SocketUtil::Accept(SOCKET socket, SOCKET& client,
-			char* remote_ip, unsigned int ip_len, unsigned short* remote_port, int wait_ms)
+		inline EnumNetError SocketUtil::Accept(SOCKET socket, SOCKET& client, StruIpAddr* pstIpAddr, int wait_ms)
 		{
 			/*if (NULL == s)
 				return SOCK_FAILURE;*/
@@ -356,7 +244,7 @@ namespace sim
 			}
 
 			//创建sockaddr_in结构体变量
-			struct sockaddr_in addr;
+			struct sockaddr_in6 addr,*paddr=NULL;
 			memset(&addr, 0, sizeof(addr));  //每个字节都用0填充
 
 #ifdef OS_WINDOWS
@@ -366,18 +254,27 @@ namespace sim
 #ifdef OS_LINUX
 			socklen_t addr_len = sizeof(addr);
 #endif
-			SOCKET accept_cli = ::accept(socket, (struct sockaddr*)&addr, &addr_len);
+			if (pstIpAddr)
+				paddr = &addr;
+
+			SOCKET accept_cli = ::accept(socket, (struct sockaddr*)paddr, &addr_len);
 			if (accept_cli == INVALID_SOCKET)
 			{
+				perror("accept:");
 				return E_NET_ERROR_FAILED;
 			}
-			if (!AddressToIpV4(&addr, remote_ip, ip_len, remote_port))
+
+			if (pstIpAddr)
 			{
-				return E_NET_ERROR_FAILED;
+				if (!SockAddrToIp((struct sockaddr*)&addr, *pstIpAddr))
+				{
+					return E_NET_ERROR_FAILED;
+				}
 			}
 			client = accept_cli;
 			return E_NET_ERROR_SUCCESS;
 		}
+
 		inline EnumNetError SocketUtil::Send(SOCKET socket, const char* data, unsigned int data_len, int wait_ms)
 		{
 			EnumNetError wait_ret = WaitTimeOut(socket, WAIT_WRITE, wait_ms);
@@ -389,12 +286,13 @@ namespace sim
 			int nRet = ::send(socket, data, data_len, 0);
 			if (nRet < 0)
 			{
+				perror("send:");
 				return E_NET_ERROR_FAILED;
 			}
 			return E_NET_ERROR_SUCCESS;
 
 		}
-		inline EnumNetError SocketUtil::SendTo(SOCKET socket, const char* data, unsigned int data_len, const char* ipaddr, unsigned short port, int wait_ms)
+		inline EnumNetError SocketUtil::SendTo(SOCKET socket, const char* data, unsigned int data_len, const StruIpAddr& stIpAddr, int wait_ms)
 		{
 			EnumNetError wait_ret = WaitTimeOut(socket, WAIT_WRITE, wait_ms);
 			if (wait_ret != E_NET_ERROR_SUCCESS)
@@ -403,17 +301,40 @@ namespace sim
 			}
 			
 			struct sockaddr_in serv_addr;
-			if (!IpToAddressV4(ipaddr, port, &serv_addr))
-				return E_NET_ERROR_FAILED;
+			memset(&serv_addr, 0, sizeof(serv_addr));
+			struct sockaddr_in6 serv_addr6;
+			memset(&serv_addr6, 0, sizeof(serv_addr6));
+			struct sockaddr* addr_name = NULL;
+			int addr_namelen = 0;
+			if (stIpAddr.eType == E_IP_ADDR_TYPE_IPV6)
+			{
+				if (!IpToSockAddr(stIpAddr, (struct sockaddr*)&serv_addr6))
+					return E_NET_ERROR_PARAM;
+				addr_name =(struct sockaddr*) & serv_addr6;
+				addr_namelen = sizeof(serv_addr6);
+			}
+			else if (stIpAddr.eType == E_IP_ADDR_TYPE_IPV4)
+			{
 
+				if (!IpToSockAddr(stIpAddr, (struct sockaddr*)&serv_addr))
+					return E_NET_ERROR_PARAM;
+				addr_name = (struct sockaddr*)&serv_addr;
+				addr_namelen = sizeof(serv_addr);
+			}
+			else
+			{
+				return E_NET_ERROR_PARAM;
+			}
 			int nRet = ::sendto(socket, data, data_len, 0,
-				(struct sockaddr*)&serv_addr, sizeof(serv_addr));
+				(struct sockaddr*)addr_name, addr_namelen);
 			if (nRet < 0)
 			{
+				perror("sendto:");
 				return E_NET_ERROR_FAILED;
 			}
 			return E_NET_ERROR_SUCCESS;
 		}
+
 		inline EnumNetError SocketUtil::Recv(SOCKET socket, char* data, unsigned int data_len, int wait_ms)
 		{
 			EnumNetError wait_ret = WaitTimeOut(socket, WAIT_READ, wait_ms);
@@ -425,15 +346,15 @@ namespace sim
 			int nRet = ::recv(socket, data, data_len, 0);
 			if (nRet < 0)
 			{
+				perror("recv:");
 				return E_NET_ERROR_FAILED;
 			}
 			return E_NET_ERROR_SUCCESS;
 		}
-		inline EnumNetError SocketUtil::Recvfrom(SOCKET socket, char* data, unsigned int data_len, char* remote_ip, unsigned int ip_len,
-			unsigned short* remote_port, int wait_ms)
+		inline EnumNetError SocketUtil::Recvfrom(SOCKET socket, char* data, unsigned int data_len, StruIpAddr& stIpAddr, int wait_ms)
 		{
 			//创建sockaddr_in结构体变量
-			struct sockaddr_in serv_addr;
+			struct sockaddr_in6 serv_addr;
 #ifdef OS_WINDOWS
 			int add_len = sizeof(serv_addr);
 #endif
@@ -457,27 +378,30 @@ namespace sim
 				(struct sockaddr*)&serv_addr, &add_len);
 			if (ret > 0)
 			{
-				AddressToIpV4(&serv_addr, remote_ip, ip_len, remote_port);
+				perror("recvfrom:");
+				if (!SockAddrToIp((struct sockaddr*)&serv_addr, stIpAddr))
+				{
+					return E_NET_ERROR_FAILED;
+				}
 				return E_NET_ERROR_SUCCESS;
 			}
 			return E_NET_ERROR_FAILED;
 		}
+
 		inline EnumNetError SocketUtil::Close(SOCKET socket)
 		{
-			SOCKET temp = socket;
-			socket = INVALID_SOCKET;
-
 #ifdef OS_WINDOWS
 			/*struct linger so_linger;
 			so_linger.l_onoff = 1;
 			so_linger.l_linger = 0;
 			setsockopt(sock_, SOL_SOCKET, SO_LINGER,(const char*) &so_linger, sizeof so_linger);*/
-			int ret = ::closesocket(temp);
+			int ret = ::closesocket(socket);
 #endif
 
 #ifdef OS_LINUX
-			int ret = ::close(temp);
+			int ret = ::close(socket);
 #endif
+
 			if (ret > 0)
 			{
 				return E_NET_ERROR_SUCCESS;
@@ -531,6 +455,7 @@ namespace sim
 			if (ret < 0)
 			{
 				//SIM_LERROR("select error ret=" << ret << " errno=" << errno);
+				perror("select:");
 				return E_NET_ERROR_FAILED;
 			}
 			else if (ret == 0)
@@ -557,34 +482,6 @@ namespace sim
 			static WsInit g_init;
 #endif
 		}
-		inline bool SocketUtil::IpToAddressV4(const char* ipaddr, unsigned short port, sockaddr_in* out_addr)
-		{
-			if (NULL == out_addr)
-				return false;
-			memset(out_addr, 0, sizeof(*out_addr));  //每个字节都用0填充
-			out_addr->sin_family = AF_INET;  //使用IPv4地址
-			if (ipaddr)
-				out_addr->sin_addr.s_addr = inet_addr(ipaddr);  //具体的IP地址
-			else
-				out_addr->sin_addr.s_addr = htonl(INADDR_ANY);  //所有ip
-			out_addr->sin_port = htons(port);  //端口
-			return E_NET_ERROR_SUCCESS;
-		}
-		inline bool SocketUtil::AddressToIpV4(const sockaddr_in* addr, char* ipaddr, unsigned int ipaddr_len, unsigned short* port)
-		{
-			if (NULL == addr)
-				return false;
-
-			if (ipaddr && ipaddr_len >= 0)
-			{
-				snprintf(ipaddr, ipaddr_len, "%s", inet_ntoa(addr->sin_addr));
-			}
-			if (port)
-			{
-				*port = ntohs(addr->sin_port);
-			}
-			return E_NET_ERROR_SUCCESS;
-		}
 		inline bool SocketUtil::SetNonBlock(SOCKET socket, bool is_non_block)
 		{
 
@@ -593,6 +490,7 @@ namespace sim
 			int ret = ioctlsocket(socket, FIONBIO, (unsigned long*)&ul);    //设置成非阻塞模式
 			if (ret == SOCKET_ERROR)   //设置失败
 			{
+				perror("ioctlsocket:");
 				return E_NET_ERROR_FAILED;
 			}
 			return E_NET_ERROR_SUCCESS;
@@ -602,6 +500,7 @@ namespace sim
 			int new_option = old_option | (is_non_block ? O_NONBLOCK : (~O_NONBLOCK));
 			if (fcntl(socket, F_SETFL, new_option) < 0)
 			{
+				perror("fcntl:");
 				return E_NET_ERROR_FAILED;
 			}
 			return E_NET_ERROR_SUCCESS;
@@ -609,6 +508,7 @@ namespace sim
 			return E_NET_ERROR_FAILED;
 		}
 		inline bool SocketUtil::SetReusePort(SOCKET socket, bool set)
+
 		{
 #ifdef OS_WINDOWS
 			int opt = set ? 1 : 0;
@@ -616,6 +516,7 @@ namespace sim
 				(const char*)&opt, sizeof(opt));
 			if (ret == SOCKET_ERROR)   //设置失败
 			{
+				perror("setsockopt:");
 				return E_NET_ERROR_FAILED;
 			}
 #endif
@@ -625,10 +526,167 @@ namespace sim
 				&opt, static_cast<socklen_t>(sizeof(opt)));
 			if (ret < 0)
 			{
+				perror("setsockopt:");
 				return E_NET_ERROR_FAILED;
 			}
 #endif
 			return E_NET_ERROR_SUCCESS;
+		}
+
+		inline EnumNetError SocketUtil::Connect(SOCKET socket, const StruIpAddr& stIpAddr, int wait_ms)
+		{
+			//创建sockaddr_in结构体变量
+			struct sockaddr_in serv_addr;
+			memset(&serv_addr, 0, sizeof(serv_addr));
+			struct sockaddr_in6 serv_addr6;
+			memset(&serv_addr6, 0, sizeof(serv_addr6));
+			struct sockaddr* addr_name = NULL;
+			int addr_namelen = 0;
+			if (stIpAddr.eType == E_IP_ADDR_TYPE_IPV6)
+			{
+				if (!IpToSockAddr(stIpAddr, (struct sockaddr*)&serv_addr6))
+					return E_NET_ERROR_PARAM;
+				addr_namelen = sizeof(serv_addr6);
+			}
+			else if (stIpAddr.eType == E_IP_ADDR_TYPE_IPV4)
+			{
+				
+				if (!IpToSockAddr(stIpAddr, (struct sockaddr*)&serv_addr))
+					return E_NET_ERROR_PARAM;
+				addr_namelen = sizeof(serv_addr);
+			}
+			else
+			{
+				return E_NET_ERROR_PARAM;
+			}
+
+			//将套接字和IP、端口绑定
+			int nRet = ::connect(socket, (struct sockaddr*)addr_name, addr_namelen);
+			if (nRet < 0)
+			{
+				perror("connect:");
+				return E_NET_ERROR_FAILED;
+			}
+
+			if (wait_ms == -1)
+				return E_NET_ERROR_SUCCESS;
+
+			EnumNetError eRet = WaitTimeOut(socket, WAIT_WRITE, wait_ms);
+			if (eRet != E_NET_ERROR_SUCCESS)
+			{
+				return eRet;
+			}
+
+			int error = 0;
+#ifdef OS_WINDOWS
+			int length = sizeof(error);
+#endif
+
+#ifdef OS_LINUX
+			socklen_t length = sizeof(error);
+#endif
+
+			if (getsockopt(socket, SOL_SOCKET, SO_ERROR, (char*)&error, &length) < 0)
+			{
+				//SIM_LERROR("get socket option failed");
+				return E_NET_ERROR_FAILED;
+			}
+
+			if (error != 0)
+			{
+				//SIM_LERROR("connection failed after select with the error:"<< error);
+				return E_NET_ERROR_FAILED;
+			}
+
+			return E_NET_ERROR_SUCCESS;
+		}
+		
+		inline bool SocketUtil::IpToSockAddr(const StruIpAddr& stIpAddr, sockaddr* p)
+		{
+			if(NULL == p)
+				return false;
+
+			if (stIpAddr.eType == E_IP_ADDR_TYPE_IPV6)
+			{
+				struct sockaddr_in6* serv_addr6 = (struct sockaddr_in6*)p;
+				// 使用inet_pton将IPv6地址字符串转换为二进制形式
+				if (inet_pton(AF_INET6, stIpAddr.strIp.c_str(), &serv_addr6->sin6_addr) <= 0) {
+					// 如果inet_pton失败，返回错误
+					perror("inet_pton:");
+					return false;
+				}
+
+				// 设置地址族为AF_INET6
+				serv_addr6->sin6_family = AF_INET6;
+
+				// 设置端口号
+				serv_addr6->sin6_port = htons(stIpAddr.usPort);
+
+				// 清除sin6_flowinfo和sin6_scope_id（如果需要的话）
+				serv_addr6->sin6_flowinfo = 0;
+				serv_addr6->sin6_scope_id = 0; // 除非你需要指定特定的作用域ID
+
+				return true;
+			}
+			else if (stIpAddr.eType == E_IP_ADDR_TYPE_IPV4)
+			{
+				struct sockaddr_in* serv_addr = (struct sockaddr_in*)p;
+				// 使用inet_pton将IPv4地址字符串转换为二进制形式
+				if (inet_pton(AF_INET, stIpAddr.strIp.c_str(), &serv_addr->sin_addr) <= 0) {
+					// 如果inet_pton失败，返回错误
+					perror("inet_pton:");
+					return false;
+				}
+
+				// 设置地址族为AF_INET6
+				serv_addr->sin_family = AF_INET;
+
+				// 设置端口号
+				serv_addr->sin_port = htons(stIpAddr.usPort);
+				return true;
+			}
+
+			return false;
+		}
+		inline bool SocketUtil::SockAddrToIp(const sockaddr* addr, StruIpAddr& stIpAddr)
+		{
+			if (NULL == addr)
+			{
+				return false;
+			}
+
+			if (addr->sa_family == AF_INET6)
+			{
+				struct sockaddr_in6* serv_addr6 = (struct sockaddr_in6*)addr;
+				char IPAddrBuff[INET6_ADDRSTRLEN+16];
+				memset(IPAddrBuff, 0, sizeof(IPAddrBuff));
+				if (inet_ntop(AF_INET6,& serv_addr6->sin6_addr, (char*)IPAddrBuff, sizeof(IPAddrBuff)) <= 0) {
+					// 如果inet_pton失败，返回错误
+					perror("inet_ntop:");
+					return false;
+				}
+				stIpAddr.strIp = IPAddrBuff;
+				stIpAddr.eType = E_IP_ADDR_TYPE_IPV6;
+				stIpAddr.usPort = ntohs(serv_addr6->sin6_port);
+
+				return true;
+			}
+			else if (addr->sa_family == AF_INET)
+			{
+				struct sockaddr_in* serv_addr = (struct sockaddr_in*)addr;
+				char IPAddrBuff[INET_ADDRSTRLEN + 16];
+				memset(IPAddrBuff, 0, sizeof(IPAddrBuff));
+				if (inet_ntop(AF_INET, &serv_addr->sin_addr, (char*)IPAddrBuff, sizeof(IPAddrBuff)) <= 0) {
+					// 如果inet_pton失败，返回错误
+					perror("inet_ntop:");
+					return false;
+				}
+				stIpAddr.strIp = IPAddrBuff;
+				stIpAddr.eType = E_IP_ADDR_TYPE_IPV4;
+				stIpAddr.usPort = ntohs(serv_addr->sin_port);
+				return true;	
+			}
+			return false;
 		}
 	}
 }

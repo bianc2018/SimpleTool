@@ -6,6 +6,7 @@
 #define SIM_TEST_HPP_
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
+#include <WinSock2.h>
 #include <windows.h>
 #ifndef OS_WINDOWS
 	#define OS_WINDOWS
