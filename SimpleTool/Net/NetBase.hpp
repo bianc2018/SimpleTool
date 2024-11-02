@@ -16,16 +16,17 @@
 
 namespace sim
 {
-    //网络库的命名空间
     namespace net
     {
         enum EnumNetError
         {
             E_NET_ERROR_SUCCESS = 0,
             E_NET_ERROR_FAILED = -1,
-            E_NET_ERROR_PARAM =  -2,//参数异常
-            E_NET_ERROR_TIMEOUT =  -3,//操作超时
-            E_NET_ERROR_UNDEF = -3,//操作未定义
+            E_NET_ERROR_PARAM = -2,//参数异常
+            E_NET_ERROR_TIMEOUT = -3,//操作超时
+            E_NET_ERROR_UNDEF = -4,//操作未定义
+            E_NET_ERROR_NEW_BUFF = -5,//缓存申请失败
+            E_NET_ERROR_OBJECT = -6,//无效对象
         };
 
         typedef UInt64 TypeNetChannel;
@@ -69,19 +70,21 @@ namespace sim
 
             //接受链接事件，ch_srv 接受链接的服务通道，ch 生成的链接
             //E_NET_ERROR_SUCCESS !EnumNetError 协议栈内部回收ch 拒绝链接
-            virtual EnumNetError OnAccept(sim::RefWeakObject<Channel> ch_srv, sim::RefWeakObject<Channel> ch) {return E_NET_ERROR_UNDEF;}
+            virtual EnumNetError OnAccept(sim::RefWeakObject<Channel> ch_srv, sim::RefWeakObject<Channel> ch) { return E_NET_ERROR_UNDEF; }
 
             //链接关闭事件，eCloseResult 关闭原因
             virtual void OnClose(sim::RefWeakObject<Channel> ch, EnumNetError eCloseResult) {};
 
             //收到报文,stIpAddr 来源地址
-            virtual EnumNetError OnReaded(sim::RefWeakObject<Channel> ch, RefBuff& stBuff, StruIpAddr stIpAddr){ return E_NET_ERROR_UNDEF; };
+            virtual void OnReaded(sim::RefWeakObject<Channel> ch, RefBuff& stBuff,UInt32 bytes_transfered, StruIpAddr stIpAddr) { return ; };
 
             //发送报文成功
-            virtual EnumNetError OnWrited(sim::RefWeakObject<Channel> ch, RefBuff& stBuff) { return E_NET_ERROR_UNDEF; };
+            virtual void OnWrited(sim::RefWeakObject<Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::EnumNetError eWriteResult) { return ; };
         };
 
         //网络通道基类
+        // 
+        // 
         //负责基本的数据交互
         class Channel
         {
@@ -91,24 +94,24 @@ namespace sim
 
             //网络接口
             //接收一个 StruIpAddr 类型的参数，返回一个 EnumNetError 类型的值
-            virtual EnumNetError Bind(const StruIpAddr& stIpAddr)=0;
+            virtual EnumNetError Bind(const StruIpAddr& stIpAddr) = 0;
 
 
             //接收一个 StruIpAddr 类型的参数，返回一个 EnumNetError 类型的值
-            virtual EnumNetError StartConnect(const StruIpAddr& stIpAddr)=0;
+            virtual EnumNetError StartConnect(const StruIpAddr& stIpAddr) = 0;
 
             //开始接受一个链接
-            virtual EnumNetError StartAccept()=0;
+            virtual EnumNetError StartAccept() = 0;
 
             //没有参数，也没有返回值
-            virtual void Close()=0;
+            virtual void Close() = 0;
 
             //异步发送数据
             //stIpAddr只有当udp而且没有进行链接有效，其他情况会被忽略掉
-            virtual EnumNetError StartWrite(RefBuff& stBuff, StruIpAddr* stIpAddr=NULL)=0;
+            virtual EnumNetError StartWrite(RefBuff& stBuff, StruIpAddr* stIpAddr = NULL) = 0;
 
             //开始读取数据，bKeep 是否一直读取，false 只会进行一次读取，true一直读取，直到链接断开
-            virtual EnumNetError StartRead(bool bKeep=true) = 0;
+            virtual EnumNetError StartRead(RefBuff& stBuff = RefBuff(), bool bKeep = true) = 0;
 
         public:
             //返回类型，见SIM_NET_CHANNEL_TYPE_定义
@@ -127,30 +130,28 @@ namespace sim
         {
         public:
             //显式初始化
-            virtual EnumNetError Init() = 0;
+            virtual EnumNetError Init(int nThreadnum) = 0;
             virtual EnumNetError UnInit() = 0;
 
             //创建通道
             //typeflag  类型，见SIM_NET_CHANNEL_TYPE_定义
             //pro       在这个通道上面的网络协议，可以为空
             //创建失败返回空
-            virtual sim::RefObject<Channel> CreateChannel(TypeNetChannel typeflag, Protocol* pro = NULL) = 0;
+            virtual RefObject<Channel> CreateChannel(TypeNetChannel typeflag, Protocol* pro = NULL) = 0;
 
             //主动解绑通道，Manager不再管理这个通道，之后ch不可用
-            virtual EnumNetError UnBindChannel(sim::RefObject<Channel> ch) = 0;
-
-            //事件循环，执行一次事件后退出
-            //wait_ms 等待时间
-            virtual EnumNetError PollOne(int wait_ms) = 0;
+            virtual EnumNetError UnBindChannel(RefObject<Channel> ch) = 0;
 
             //事件循环，不推出，直到执行Exit
-            //wait_ms 等待时间
-            virtual EnumNetError Poll(int wait_ms) = 0;
+            //wait_ms 等待时间,bOnce 执行一次事件后退出
+            virtual EnumNetError Poll(int wait_ms, bool bOnce = false) = 0;
 
             //退出Poll，所有堵塞Poll线程退出
             virtual void ExitPoll() = 0;
-        };
 
+            //获取当前的通道数量
+            virtual UInt64 GetChannelSize() = 0;
+        };
     }
 }
 #endif //!SIM_NET_BASE_HPP_

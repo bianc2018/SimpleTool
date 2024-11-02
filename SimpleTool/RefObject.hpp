@@ -126,6 +126,9 @@ namespace sim
 	class RefObject
 	{
 		friend class RefWeakObject<T>;
+
+		template <typename T1, typename T2>
+		friend RefObject<T1> reinterpret_pointer_cast(RefObject<T2>& obj);
 	public:
 		RefObject(T* p=NULL, RefObjectDelete deleter=NULL, void*pdata=NULL)
 			:ptr_(p), deleter_(deleter), ref_count_ptr_(new RefCountable(1)), pdata_(pdata)
@@ -173,6 +176,20 @@ namespace sim
 			return *this;
 		}
 		
+		virtual bool operator==(const RefObject<T>& rhs)
+		{
+			return (ptr_ == rhs.ptr_);
+		}
+
+		virtual bool operator!=(const RefObject<T>& rhs)
+		{
+			return !this->operator==(rhs);
+		}
+
+		virtual bool operator<(const RefObject<T>&rhs)
+		{
+			return (ptr_ < rhs.ptr_);
+		}
 		virtual RefCountType getcount()
 		{
 			return ref_count_ptr_->get_ref_count();
@@ -195,6 +212,10 @@ namespace sim
 		}
 		//获取指针
 		virtual T* get()
+		{
+			return ptr_;
+		}
+		virtual const T* c_get() const
 		{
 			return ptr_;
 		}
@@ -257,6 +278,13 @@ namespace sim
 		{
 			ref_count_ptr_->add_weak_ref();
 		}
+
+		//空指针
+		RefWeakObject()
+			:ptr_(NULL), deleter_(NULL), ref_count_ptr_(new RefCountable(0)), pdata_(NULL)
+		{
+			ref_count_ptr_->add_weak_ref();
+		}
 		virtual ~RefWeakObject()
 		{
 			//释放
@@ -315,13 +343,11 @@ namespace sim
 		{
 			return ref_count_ptr_->get_ref_weak_count();
 		}
-
-		virtual void reset(T* p = NULL)
+		virtual void reset()
 		{
 			release();
-			ptr_ = p;
+			ptr_ = NULL;
 			ref_count_ptr_ = new RefCountable(0);
-			ref_count_ptr_->add_weak_ref();
 		}
 	protected:
 		void release()
@@ -445,5 +471,13 @@ namespace sim
 	private:
 		unsigned int buff_size_;
 	};
+
+	template <typename T1, typename T2>
+	RefObject<T1> reinterpret_pointer_cast(RefObject<T2>& obj)
+	{
+		obj.ref_count_ptr_->add_ref();
+		RefObject<T1> pNew = RefObject<T1>(obj.ref_count_ptr_, (T1*)obj.get(), obj.deleter_, obj.pdata_);
+		return pNew;
+	}
 }
  #endif // ifndef _REFCOUNTED_INCLUDED
