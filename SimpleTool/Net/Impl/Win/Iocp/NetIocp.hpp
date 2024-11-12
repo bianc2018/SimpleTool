@@ -602,6 +602,7 @@ namespace sim
             int addr_len = sizeof(SOCKADDR_IN);
             if(m_Typeflag&E_IP_ADDR_TYPE_IPV6)
                 addr_len = sizeof(SOCKADDR_IN6);
+            addr_len += 16;
 
             e->buff = RefBuff(addr_len * 2);
             e->buff.set(0);
