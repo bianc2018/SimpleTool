@@ -20,7 +20,9 @@ namespace sim
 	{
 	private:
 		Mutex(const Mutex &other) {};
-		Mutex &operator=(const Mutex &other) {};
+		Mutex &operator=(const Mutex &other) {
+			return *this;
+		};
 		
 		CRITICAL_SECTION critical_section_;
 	public:
@@ -67,7 +69,9 @@ namespace sim
 	class AutoMutex
 	{
 		AutoMutex(const AutoMutex &other):lock_(other.lock_){};
-		AutoMutex operator=(const AutoMutex &other) {};
+		AutoMutex operator=(const AutoMutex &other) {
+			return *this;
+		};
 
 		Mutex &lock_;
 	public:

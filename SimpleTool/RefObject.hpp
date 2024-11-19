@@ -22,7 +22,7 @@
 #endif
 
 #include <new>
-
+#include <cstring>
 namespace sim
 {
 	//引用计数对象
@@ -348,6 +348,11 @@ namespace sim
 			release();
 			ptr_ = NULL;
 			ref_count_ptr_ = new RefCountable(0);
+		}
+
+		virtual operator bool()
+		{
+			return NULL != ptr_;
 		}
 	protected:
 		void release()
