@@ -25,3 +25,6 @@ _deps
 /out
 /CMakePresets.json
 /doc/ssh-rfc
+/.vscode
+/build
+/out.7z
