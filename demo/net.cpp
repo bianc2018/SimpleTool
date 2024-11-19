@@ -23,6 +23,10 @@ public:
         sim::RefObject<net::Channel> rch = ch.ref_object();
         RefBuff stTempBuff(10*1024*1024);
         rch->StartRead(stTempBuff);
+
+        RefBuff stWriteBuff(1024);
+        snprintf(stWriteBuff.get(), stWriteBuff.size(), "%s", "9999999");
+        rch->StartWrite(stWriteBuff);
     }
 
     //接受链接事件，ch_srv 接受链接的服务通道，ch 生成的链接
@@ -46,7 +50,7 @@ public:
     virtual void OnReaded(sim::RefWeakObject<net::Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::StruIpAddr stIpAddr)
     { 
         RefBuff stTempBuff(stBuff.get(), bytes_transfered);
-        SIM_LDEBUG("TestPro: OnReaded " << (void*)ch.ref_object().get() <<" bytes_transfered"<< bytes_transfered/*<<" stBuff: " << stTempBuff.get()*/<<" stIpAddr:"<< stIpAddr.strIp<<":"<< stIpAddr.usPort);
+        SIM_LDEBUG("TestPro: OnReaded " << (void*)ch.ref_object().get() <<" bytes_transfered:"<< bytes_transfered/*<<" stBuff: " << stTempBuff.get()*/<<" stIpAddr:"<< stIpAddr.strIp<<":"<< stIpAddr.usPort);
         sim::RefObject<net::Channel> rch = ch.ref_object();
         
         rch->StartWrite(stTempBuff);
@@ -56,7 +60,7 @@ public:
     //发送报文成功
     virtual void OnWrited(sim::RefWeakObject<net::Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::EnumNetError eWriteResult)
     { 
-        SIM_LDEBUG("TestPro: OnWrited " << (void*)ch.ref_object().get() << " bytes_transfered" << bytes_transfered/*<< " stBuff: " << stBuff.get()*/);
+        SIM_LDEBUG("TestPro: OnWrited " << (void*)ch.ref_object().get() << " bytes_transfered:" << bytes_transfered/*<< " stBuff: " << stBuff.get()*/);
         return ; 
     };
 private:
@@ -73,12 +77,12 @@ int main(int argc, char* argv[])
     net.Init();
 
     sim::RefObject <TestPro> refPro(new TestPro());
-    sim::RefObject<net::Channel> pSrv = net.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP/*|SIM_NET_CHANNEL_TYPE_IPV6*/, refPro.get());
-    sim::RefObject<net::Channel> pChan=net.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP/*| SIM_NET_CHANNEL_TYPE_IPV6*/, refPro.get());
+    sim::RefObject<net::Channel> pSrv = net.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro.get());
+    sim::RefObject<net::Channel> pChan=net.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro.get());
 
     net::StruIpAddr stBind;
     stBind.eType = sim::net::E_IP_ADDR_TYPE_IPV4;
-    stBind.usPort = 6400;
+    stBind.usPort = 6451;
     //stBind.strIp = "127.0.0.1";
     pSrv->Bind(stBind);
     pSrv->StartAccept();

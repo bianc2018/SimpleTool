@@ -157,7 +157,7 @@ namespace sim
             virtual EnumNetError StartWrite(RefBuff& stBuff, StruIpAddr* stIpAddr = NULL);
 
             //开始读取数据，bKeep 是否一直读取，false 只会进行一次读取，true一直读取，直到链接断开
-            virtual EnumNetError StartRead(RefBuff& stBuff = RefBuff(), bool bKeep = true);
+            virtual EnumNetError StartRead(RefBuff stBuff = RefBuff(), bool bKeep = true);
 
         public:
             //返回类型，见SIM_NET_CHANNEL_TYPE_定义
@@ -712,7 +712,7 @@ namespace sim
             }
         }
 
-        inline EnumNetError IocpChannel::StartRead(RefBuff& stBuff, bool bKeep)
+        inline EnumNetError IocpChannel::StartRead(RefBuff stBuff, bool bKeep)
         {
             RefObject<IocpChannel> refSelf = m_pSelf.ref_object();
             if (!refSelf)

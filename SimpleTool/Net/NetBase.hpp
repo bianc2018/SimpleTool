@@ -1,17 +1,17 @@
 /*
-* ÍøÂç¹¤¾ß¿âµÄ»ù±¾Í·¶¨Òå
+* ç½‘ç»œå·¥å…·åº“çš„åŸºæœ¬å¤´å®šä¹‰
 */
 #ifndef SIM_NET_BASE_HPP_
 #define SIM_NET_BASE_HPP_
 #include "Types.hpp"
 #include "RefObject.hpp"
 
-//Í¨µÀÀàĞÍ
+//é€šé“ç±»å‹
 //TCP 1 or UDP 0
 #define SIM_NET_CHANNEL_TYPE_TCP 0x01
 //IPV6 1 or IPV4 0
 #define SIM_NET_CHANNEL_TYPE_IPV6 0x02
-//»ùÓÚSSLµÄ
+//åŸºäºSSLçš„
 #define SIM_NET_CHANNEL_TYPE_SSL 0x04
 
 namespace sim
@@ -22,22 +22,25 @@ namespace sim
         {
             E_NET_ERROR_SUCCESS = 0,
             E_NET_ERROR_FAILED = -1,
-            E_NET_ERROR_PARAM = -2,//²ÎÊıÒì³£
-            E_NET_ERROR_TIMEOUT = -3,//²Ù×÷³¬Ê±
-            E_NET_ERROR_UNDEF = -4,//²Ù×÷Î´¶¨Òå
-            E_NET_ERROR_NEW_BUFF = -5,//»º´æÉêÇëÊ§°Ü
-            E_NET_ERROR_OBJECT = -6,//ÎŞĞ§¶ÔÏó
+            E_NET_ERROR_PARAM = -2,//å‚æ•°å¼‚å¸¸
+            E_NET_ERROR_TIMEOUT = -3,//æ“ä½œè¶…æ—¶
+            E_NET_ERROR_UNDEF = -4,//æ“ä½œæœªå®šä¹‰
+            E_NET_ERROR_NEW_BUFF = -5,//ç¼“å­˜ç”³è¯·å¤±è´¥
+            E_NET_ERROR_OBJECT = -6,//æ— æ•ˆå¯¹è±¡
+            E_NET_ERROR_INPROGRESS=-7,//é“¾æ¥ä¸­ï¼Œä½†æ˜¯æœªé“¾æ¥æˆåŠŸ
+            E_NET_ERROR_DIS_CONNECT=-8,//è¡¨ç¤ºå¯¹åº”çš„æ–‡ä»¶æè¿°ç¬¦è¢«æŒ‚æ–­ï¼ˆå¯¹æ–¹å…³é—­äº†è¿æ¥æˆ–è€…è¿›è¡Œäº†å¼‚å¸¸å…³é—­ï¼‰
+            E_NET_ERROR_USER_CLOSE=-9,//è¡¨ç¤ºå¯¹åº”çš„æ–‡ä»¶æè¿°ç¬¦è¢«ç”¨æˆ·å…³é—­äº†
         };
 
         typedef UInt64 TypeNetChannel;
 
         /**
-         * @brief IPµØÖ·ÀàĞÍÃ¶¾Ù
+         * @brief IPåœ°å€ç±»å‹æšä¸¾
          *
-         * Ã¶¾Ù±íÊ¾IPµØÖ·µÄÀàĞÍ¡£
+         * æšä¸¾è¡¨ç¤ºIPåœ°å€çš„ç±»å‹ã€‚
          *
-         * E_IP_ADDR_TYPE_IPV4: IPv4µØÖ·ÀàĞÍ
-         * E_IP_ADDR_TYPE_IPV6: IPv6µØÖ·ÀàĞÍ
+         * E_IP_ADDR_TYPE_IPV4: IPv4åœ°å€ç±»å‹
+         * E_IP_ADDR_TYPE_IPV6: IPv6åœ°å€ç±»å‹
          */
         enum EnumIpAddrType
         {
@@ -47,109 +50,117 @@ namespace sim
 
         struct StruIpAddr
         {
-            // IPµØÖ·ÀàĞÍ
+            // IPåœ°å€ç±»å‹
             EnumIpAddrType eType;
-            // IPµØÖ·×Ö·û´®
+            // IPåœ°å€å­—ç¬¦ä¸²
             String strIp;
-            // ¶Ë¿ÚºÅ
+            // ç«¯å£å·
             UInt16 usPort;
+
+            StruIpAddr()
+            :eType(E_IP_ADDR_TYPE_IPV4)
+            ,strIp("")
+            ,usPort(0)
+            {
+
+            }
         };
 
-        //ÉùÃ÷Ç°ÖÃ
+        //å£°æ˜å‰ç½®
         class Channel;
 
-        //Ğ­Òé»ùÀà
-        //¹ØÁª¾ßÌåµÄĞ­Òé½»»¥
+        //åè®®åŸºç±»
+        //å…³è”å…·ä½“çš„åè®®äº¤äº’
         class Protocol
         {
         public:
-            //´¦Àí»ù²ãĞ­ÒéµÄ»Øµ÷ÊÂ¼ş
+            //å¤„ç†åŸºå±‚åè®®çš„å›è°ƒäº‹ä»¶
 
-            //Á´½ÓÊÂ¼ş£¬eConnResult Á´½Ó½á¹û
+            //é“¾æ¥äº‹ä»¶ï¼ŒeConnResult é“¾æ¥ç»“æœ
             virtual void OnConnect(sim::RefWeakObject<Channel> ch, EnumNetError eConnResult) {}
 
-            //½ÓÊÜÁ´½ÓÊÂ¼ş£¬ch_srv ½ÓÊÜÁ´½ÓµÄ·şÎñÍ¨µÀ£¬ch Éú³ÉµÄÁ´½Ó
-            //E_NET_ERROR_SUCCESS !EnumNetError Ğ­ÒéÕ»ÄÚ²¿»ØÊÕch ¾Ü¾øÁ´½Ó
+            //æ¥å—é“¾æ¥äº‹ä»¶ï¼Œch_srv æ¥å—é“¾æ¥çš„æœåŠ¡é€šé“ï¼Œch ç”Ÿæˆçš„é“¾æ¥
+            //E_NET_ERROR_SUCCESS !EnumNetError åè®®æ ˆå†…éƒ¨å›æ”¶ch æ‹’ç»é“¾æ¥
             virtual EnumNetError OnAccept(sim::RefWeakObject<Channel> ch_srv, sim::RefWeakObject<Channel> ch) { return E_NET_ERROR_UNDEF; }
 
-            //Á´½Ó¹Ø±ÕÊÂ¼ş£¬eCloseResult ¹Ø±ÕÔ­Òò
+            //é“¾æ¥å…³é—­äº‹ä»¶ï¼ŒeCloseResult å…³é—­åŸå› 
             virtual void OnClose(sim::RefWeakObject<Channel> ch, EnumNetError eCloseResult) {};
 
-            //ÊÕµ½±¨ÎÄ,stIpAddr À´Ô´µØÖ·
+            //æ”¶åˆ°æŠ¥æ–‡,stIpAddr æ¥æºåœ°å€
             virtual void OnReaded(sim::RefWeakObject<Channel> ch, RefBuff& stBuff,UInt32 bytes_transfered, StruIpAddr stIpAddr) { return ; };
 
-            //·¢ËÍ±¨ÎÄ³É¹¦
+            //å‘é€æŠ¥æ–‡æˆåŠŸ
             virtual void OnWrited(sim::RefWeakObject<Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::EnumNetError eWriteResult) { return ; };
         };
 
-        //ÍøÂçÍ¨µÀ»ùÀà
+        //ç½‘ç»œé€šé“åŸºç±»
         // 
         // 
-        //¸ºÔğ»ù±¾µÄÊı¾İ½»»¥
+        //è´Ÿè´£åŸºæœ¬çš„æ•°æ®äº¤äº’
         class Channel
         {
         public:
-            //ÇĞ»»Í¨µÀ°ó¶¨µÄĞ­Òé
+            //åˆ‡æ¢é€šé“ç»‘å®šçš„åè®®
             virtual EnumNetError Switch(Protocol* pro) = 0;
 
-            //ÍøÂç½Ó¿Ú
-            //½ÓÊÕÒ»¸ö StruIpAddr ÀàĞÍµÄ²ÎÊı£¬·µ»ØÒ»¸ö EnumNetError ÀàĞÍµÄÖµ
+            //ç½‘ç»œæ¥å£
+            //æ¥æ”¶ä¸€ä¸ª StruIpAddr ç±»å‹çš„å‚æ•°ï¼Œè¿”å›ä¸€ä¸ª EnumNetError ç±»å‹çš„å€¼
             virtual EnumNetError Bind(const StruIpAddr& stIpAddr) = 0;
 
 
-            //½ÓÊÕÒ»¸ö StruIpAddr ÀàĞÍµÄ²ÎÊı£¬·µ»ØÒ»¸ö EnumNetError ÀàĞÍµÄÖµ
+            //æ¥æ”¶ä¸€ä¸ª StruIpAddr ç±»å‹çš„å‚æ•°ï¼Œè¿”å›ä¸€ä¸ª EnumNetError ç±»å‹çš„å€¼
             virtual EnumNetError StartConnect(const StruIpAddr& stIpAddr) = 0;
 
-            //¿ªÊ¼½ÓÊÜÒ»¸öÁ´½Ó
+            //å¼€å§‹æ¥å—ä¸€ä¸ªé“¾æ¥
             virtual EnumNetError StartAccept() = 0;
 
-            //Ã»ÓĞ²ÎÊı£¬Ò²Ã»ÓĞ·µ»ØÖµ
+            //æ²¡æœ‰å‚æ•°ï¼Œä¹Ÿæ²¡æœ‰è¿”å›å€¼
             virtual void Close() = 0;
 
-            //Òì²½·¢ËÍÊı¾İ
-            //stIpAddrÖ»ÓĞµ±udp¶øÇÒÃ»ÓĞ½øĞĞÁ´½ÓÓĞĞ§£¬ÆäËûÇé¿ö»á±»ºöÂÔµô
+            //å¼‚æ­¥å‘é€æ•°æ®
+            //stIpAddråªæœ‰å½“udpè€Œä¸”æ²¡æœ‰è¿›è¡Œé“¾æ¥æœ‰æ•ˆï¼Œå…¶ä»–æƒ…å†µä¼šè¢«å¿½ç•¥æ‰
             virtual EnumNetError StartWrite(RefBuff& stBuff, StruIpAddr* stIpAddr = NULL) = 0;
 
-            //¿ªÊ¼¶ÁÈ¡Êı¾İ£¬bKeep ÊÇ·ñÒ»Ö±¶ÁÈ¡£¬false Ö»»á½øĞĞÒ»´Î¶ÁÈ¡£¬trueÒ»Ö±¶ÁÈ¡£¬Ö±µ½Á´½Ó¶Ï¿ª
-            virtual EnumNetError StartRead(RefBuff& stBuff = RefBuff(), bool bKeep = true) = 0;
+            //å¼€å§‹è¯»å–æ•°æ®ï¼ŒbKeep æ˜¯å¦ä¸€ç›´è¯»å–ï¼Œfalse åªä¼šè¿›è¡Œä¸€æ¬¡è¯»å–ï¼Œtrueä¸€ç›´è¯»å–ï¼Œç›´åˆ°é“¾æ¥æ–­å¼€
+            virtual EnumNetError StartRead(RefBuff stBuff = RefBuff(), bool bKeep = true) = 0;
 
         public:
-            //·µ»ØÀàĞÍ£¬¼ûSIM_NET_CHANNEL_TYPE_¶¨Òå
+            //è¿”å›ç±»å‹ï¼Œè§SIM_NET_CHANNEL_TYPE_å®šä¹‰
             virtual TypeNetChannel Type() = 0;
 
-            //ÊÇ·ñÒÑ¾­Á´½Ó
+            //æ˜¯å¦å·²ç»é“¾æ¥
             virtual bool IsConnect() = 0;
-            //ÊÇ·ñ
+            //æ˜¯å¦
         private:
 
         };
 
 
-        //ÍøÂç¹ÜÀíÆ÷»ùÀà
+        //ç½‘ç»œç®¡ç†å™¨åŸºç±»
         class Manager
         {
         public:
-            //ÏÔÊ½³õÊ¼»¯
+            //æ˜¾å¼åˆå§‹åŒ–
             virtual EnumNetError Init(int nThreadnum) = 0;
             virtual EnumNetError UnInit() = 0;
 
-            //´´½¨Í¨µÀ
-            //typeflag  ÀàĞÍ£¬¼ûSIM_NET_CHANNEL_TYPE_¶¨Òå
-            //pro       ÔÚÕâ¸öÍ¨µÀÉÏÃæµÄÍøÂçĞ­Òé£¬¿ÉÒÔÎª¿Õ
-            //´´½¨Ê§°Ü·µ»Ø¿Õ
+            //åˆ›å»ºé€šé“
+            //typeflag  ç±»å‹ï¼Œè§SIM_NET_CHANNEL_TYPE_å®šä¹‰
+            //pro       åœ¨è¿™ä¸ªé€šé“ä¸Šé¢çš„ç½‘ç»œåè®®ï¼Œå¯ä»¥ä¸ºç©º
+            //åˆ›å»ºå¤±è´¥è¿”å›ç©º
             virtual RefObject<Channel> CreateChannel(TypeNetChannel typeflag, Protocol* pro = NULL) = 0;
 
-            //Ö÷¶¯½â°óÍ¨µÀ£¬Manager²»ÔÙ¹ÜÀíÕâ¸öÍ¨µÀ£¬Ö®ºóch²»¿ÉÓÃ
+            //ä¸»åŠ¨è§£ç»‘é€šé“ï¼ŒManagerä¸å†ç®¡ç†è¿™ä¸ªé€šé“ï¼Œä¹‹åchä¸å¯ç”¨
             virtual EnumNetError UnBindChannel(RefObject<Channel> ch) = 0;
 
-            //ÊÂ¼şÑ­»·£¬²»ÍÆ³ö£¬Ö±µ½Ö´ĞĞExit
-            //wait_ms µÈ´ıÊ±¼ä,bOnce Ö´ĞĞÒ»´ÎÊÂ¼şºóÍË³ö
+            //äº‹ä»¶å¾ªç¯ï¼Œä¸æ¨å‡ºï¼Œç›´åˆ°æ‰§è¡ŒExit
+            //wait_ms ç­‰å¾…æ—¶é—´,bOnce æ‰§è¡Œä¸€æ¬¡äº‹ä»¶åé€€å‡º
             virtual EnumNetError Poll(int wait_ms, bool bOnce = false) = 0;
 
-            //ÍË³öPoll£¬ËùÓĞ¶ÂÈûPollÏß³ÌÍË³ö
+            //é€€å‡ºPollï¼Œæ‰€æœ‰å µå¡Pollçº¿ç¨‹é€€å‡º
             virtual void ExitPoll() = 0;
 
-            //»ñÈ¡µ±Ç°µÄÍ¨µÀÊıÁ¿
+            //è·å–å½“å‰çš„é€šé“æ•°é‡
             virtual UInt64 GetChannelSize() = 0;
         };
     }

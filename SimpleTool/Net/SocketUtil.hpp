@@ -86,14 +86,14 @@
 
 				static EnumNetError Accept(SOCKET socket, SOCKET& client, StruIpAddr* pstIpAddr, int wait_ms = -1);
 
-				static EnumNetError Send(SOCKET socket, const char* data, unsigned int data_len, int wait_ms = -1);
+				static EnumNetError Send(SOCKET socket, const char* data, unsigned int &data_len, int wait_ms = -1);
 
-				static EnumNetError SendTo(SOCKET socket, const char* data, unsigned int data_len, \
+				static EnumNetError SendTo(SOCKET socket, const char* data, unsigned int& data_len, \
 					const StruIpAddr& stIpAddr, int wait_ms = -1);
 
-				static EnumNetError Recv(SOCKET socket, char* data, unsigned int data_len, int wait_ms = -1);
+				static EnumNetError Recv(SOCKET socket, char* data, unsigned int &data_len, int wait_ms = -1);
 
-				static EnumNetError Recvfrom(SOCKET socket, char* data, unsigned int data_len, \
+				static EnumNetError Recvfrom(SOCKET socket, char* data, unsigned int& data_len, \
 					StruIpAddr& stIpAddr, int wait_ms = -1);
 
 				static EnumNetError Close(SOCKET socket);
@@ -107,6 +107,8 @@
 				static EnumNetError WaitTimeOut(SOCKET socket, WAIT_TYPE type, int wait_ms);
 
 				static EnumNetError Connect(SOCKET socket, const StruIpAddr& stIpAddr, int wait_ms = -1);
+
+				static EnumNetError IsOk(SOCKET socket);
 			public:
 				static void Init();
 
@@ -276,7 +278,7 @@
 				return E_NET_ERROR_SUCCESS;
 			}
 
-			inline EnumNetError SocketUtil::Send(SOCKET socket, const char* data, unsigned int data_len, int wait_ms)
+			inline EnumNetError SocketUtil::Send(SOCKET socket, const char* data, unsigned int &data_len, int wait_ms)
 			{
 				EnumNetError wait_ret = WaitTimeOut(socket, WAIT_WRITE, wait_ms);
 				if (wait_ret != E_NET_ERROR_SUCCESS)
@@ -290,10 +292,11 @@
 					perror("send:");
 					return E_NET_ERROR_FAILED;
 				}
+				data_len = nRet;
 				return E_NET_ERROR_SUCCESS;
 
 			}
-			inline EnumNetError SocketUtil::SendTo(SOCKET socket, const char* data, unsigned int data_len, const StruIpAddr& stIpAddr, int wait_ms)
+			inline EnumNetError SocketUtil::SendTo(SOCKET socket, const char* data, unsigned int & data_len, const StruIpAddr& stIpAddr, int wait_ms)
 			{
 				EnumNetError wait_ret = WaitTimeOut(socket, WAIT_WRITE, wait_ms);
 				if (wait_ret != E_NET_ERROR_SUCCESS)
@@ -333,10 +336,11 @@
 					perror("sendto:");
 					return E_NET_ERROR_FAILED;
 				}
+				data_len = nRet;
 				return E_NET_ERROR_SUCCESS;
 			}
 
-			inline EnumNetError SocketUtil::Recv(SOCKET socket, char* data, unsigned int data_len, int wait_ms)
+			inline EnumNetError SocketUtil::Recv(SOCKET socket, char* data, unsigned int& data_len, int wait_ms)
 			{
 				EnumNetError wait_ret = WaitTimeOut(socket, WAIT_READ, wait_ms);
 				if (wait_ret != E_NET_ERROR_SUCCESS)
@@ -350,9 +354,15 @@
 					perror("recv:");
 					return E_NET_ERROR_FAILED;
 				}
+				else if (nRet == 0)
+				{
+					data_len =0;
+					return E_NET_ERROR_DIS_CONNECT;
+				}
+				data_len = nRet;
 				return E_NET_ERROR_SUCCESS;
 			}
-			inline EnumNetError SocketUtil::Recvfrom(SOCKET socket, char* data, unsigned int data_len, StruIpAddr& stIpAddr, int wait_ms)
+			inline EnumNetError SocketUtil::Recvfrom(SOCKET socket, char* data, unsigned int &data_len, StruIpAddr& stIpAddr, int wait_ms)
 			{
 				//创建sockaddr_in结构体变量
 				struct sockaddr_in6 serv_addr;
@@ -375,18 +385,25 @@
 
 				//那个from参数输出的是对方的地址。是一个输出参数，不是输入的。
 				//将套接字和IP、端口绑定
-				int ret = ::recvfrom(socket, data, data_len, 0,
+				int nRet = ::recvfrom(socket, data, data_len, 0,
 					(struct sockaddr*)&serv_addr, &add_len);
-				if (ret > 0)
+
+				if (nRet < 0)
 				{
 					perror("recvfrom:");
-					if (!SockAddrToIp((struct sockaddr*)&serv_addr, stIpAddr))
-					{
-						return E_NET_ERROR_FAILED;
-					}
-					return E_NET_ERROR_SUCCESS;
+					return E_NET_ERROR_FAILED;
 				}
-				return E_NET_ERROR_FAILED;
+				else if (nRet == 0)
+				{
+					data_len =0;
+					return E_NET_ERROR_DIS_CONNECT;
+				}
+
+				if (!SockAddrToIp((struct sockaddr*)&serv_addr, stIpAddr))
+				{
+					return E_NET_ERROR_FAILED;
+				}
+				return E_NET_ERROR_SUCCESS;
 			}
 
 			inline EnumNetError SocketUtil::Close(SOCKET socket)
@@ -523,7 +540,7 @@
 #endif
 #ifdef OS_LINUX
 				int opt = set ? 1 : 0;
-				int ret = setsockopt(sock_, SOL_SOCKET, SO_REUSEPORT,
+				int ret = setsockopt(socket, SOL_SOCKET, SO_REUSEPORT,
 					&opt, static_cast<socklen_t>(sizeof(opt)));
 				if (ret < 0)
 				{
@@ -548,6 +565,7 @@
 					if (!IpToSockAddr(stIpAddr, (struct sockaddr*)&serv_addr6))
 						return E_NET_ERROR_PARAM;
 					addr_namelen = sizeof(serv_addr6);
+					addr_name = (struct sockaddr*) &serv_addr6;
 				}
 				else if (stIpAddr.eType == E_IP_ADDR_TYPE_IPV4)
 				{
@@ -555,6 +573,7 @@
 					if (!IpToSockAddr(stIpAddr, (struct sockaddr*)&serv_addr))
 						return E_NET_ERROR_PARAM;
 					addr_namelen = sizeof(serv_addr);
+					addr_name = (struct sockaddr*) &serv_addr;
 				}
 				else
 				{
@@ -563,46 +582,67 @@
 
 				//将套接字和IP、端口绑定
 				int nRet = ::connect(socket, (struct sockaddr*)addr_name, addr_namelen);
-				if (nRet < 0)
+				if(nRet == 0)
 				{
-					perror("connect:");
-					return E_NET_ERROR_FAILED;
-				}
-
-				if (wait_ms == -1)
+					//链接成功了
 					return E_NET_ERROR_SUCCESS;
-
-				EnumNetError eRet = WaitTimeOut(socket, WAIT_WRITE, wait_ms);
-				if (eRet != E_NET_ERROR_SUCCESS)
+				}
+				else if(nRet == -1)
 				{
-					return eRet;
+
+#ifdef OS_WINDOWS
+					if(WSAGetLastError() == WSAEWOULDBLOCK)
+#elif defined(OS_LINUX)
+					if(errno == EINPROGRESS)
+#endif
+					{
+						//处理中
+						if (wait_ms == -1)
+							return E_NET_ERROR_INPROGRESS;
+
+						EnumNetError eRet = WaitTimeOut(socket, WAIT_WRITE, wait_ms);
+						if (eRet != E_NET_ERROR_SUCCESS)
+						{
+							return eRet;
+						}
+
+						return IsOk(socket);
+					}
 				}
 
-				int error = 0;
+				
+				//其他情况都是失败
+				perror("connect:");
+				return E_NET_ERROR_FAILED;
+			}
+
+            inline EnumNetError SocketUtil::IsOk(SOCKET socket)
+            {
+                	int error = 0;
 #ifdef OS_WINDOWS
-				int length = sizeof(error);
+						int length = sizeof(error);
 #endif
 
 #ifdef OS_LINUX
-				socklen_t length = sizeof(error);
+						socklen_t length = sizeof(error);
 #endif
 
-				if (getsockopt(socket, SOL_SOCKET, SO_ERROR, (char*)&error, &length) < 0)
-				{
-					//SIM_LERROR("get socket option failed");
-					return E_NET_ERROR_FAILED;
-				}
+						if (getsockopt(socket, SOL_SOCKET, SO_ERROR, (char*)&error, &length) < 0)
+						{
+							//SIM_LERROR("get socket option failed");
+							return E_NET_ERROR_FAILED;
+						}
 
-				if (error != 0)
-				{
-					//SIM_LERROR("connection failed after select with the error:"<< error);
-					return E_NET_ERROR_FAILED;
-				}
+						if (error != 0)
+						{
+							//SIM_LERROR("connection failed after select with the error:"<< error);
+							return E_NET_ERROR_FAILED;
+						}
 
-				return E_NET_ERROR_SUCCESS;
-			}
+						return E_NET_ERROR_SUCCESS;
+            }
 
-			inline bool SocketUtil::IpToSockAddr(const StruIpAddr& stIpAddr, sockaddr* p)
+            inline bool SocketUtil::IpToSockAddr(const StruIpAddr& stIpAddr, sockaddr* p)
 			{
 				if (NULL == p)
 					return false;
