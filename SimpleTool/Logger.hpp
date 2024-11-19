@@ -154,7 +154,9 @@ namespace sim
 	{
 		//不允许复制拷贝
 		LogStream(const LogStream &other) {};
-		LogStream& operator=(const LogStream &other) {};
+		LogStream& operator=(const LogStream &other) {
+			return *this;
+		};
 	public:
 		LogStream(LogLevel max_level = LInfo) :max_level_(max_level)
 		{}
@@ -285,7 +287,7 @@ namespace sim
 		///033[1;31;40m 输出红色字符 /033[0m
 			if (lv == LError)
 				//printf("/033[1;31;40m  %s.%s.%u: %s /033[0m\n", LvInfo[lv], func, line, msg);
-				printf(RED"%s.%03d %6u %s.%s.%u: %s"NONE"\n", get_time_str().c_str(),
+				printf(RED "%s.%03d %6u %s.%s.%u: %s" NONE "\n", get_time_str().c_str(),
 					get_now_milliseconds(),
 				get_this_thread_id(),
 					get_lv_str(lv), func, line, msg);
@@ -486,7 +488,9 @@ namespace sim
 		//全局
 		Logger();
 		Logger(const Logger&) {};
-		Logger& operator=(const Logger&) {}
+		Logger& operator=(const Logger&) {
+			return *this;
+		}
 	public:
 		//全局
 		static Logger& GetLog();
