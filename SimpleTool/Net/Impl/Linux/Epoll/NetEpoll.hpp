@@ -386,7 +386,7 @@ namespace sim
 				SIM_LERROR( ch->GetSocket()<< " epoll_ctl opt "<< opt <<" flag "<<SIM_HEX(flag)<<" Failed." << strerror(errno));
  				return false;
 			}
-            SIM_LINFO( ch.get()<< " ["<<ch_event.data.ptr<<"]epoll_ctl opt "<< opt <<" flag "<<SIM_HEX(flag));
+            SIM_LINFO( ch.get()<< " ["<<ch_event.data.ptr<<"]epoll_ctl opt "<< opt <<" flag "<<SIM_HEX(flag)<<" bset "<<bset<<" now events:"<<SIM_HEX(ch_event.events));
             //移除之后，释放掉缓存
             if(opt == EPOLL_CTL_DEL)
             {
@@ -554,6 +554,7 @@ namespace sim
 
         inline EnumNetError EpollChannel::StartRead(RefBuff stBuff, bool bKeep)
         {
+            SIM_LINFO( this << " StartRead "<<stBuff.size()<<" bKeep "<<bKeep);
             if(stBuff.size()<=0)
                 stBuff = RefBuff(1024);
 
@@ -573,6 +574,7 @@ namespace sim
                 {
                     m_stKeepBuff = stBuff;//进行保持
                 }
+                m_bKeepReadFlag = bKeep;
             }
 
             if(!m_myEpollManager.EpollCtrl(ch,EPOLL_CTL_MOD,EPOLLIN,true))
@@ -671,7 +673,16 @@ namespace sim
                 if(false == bNeedRead)
                 {
                     //没有需要读的
-                    m_myEpollManager.EpollCtrl(ch,EPOLL_CTL_MOD,EPOLLIN,false);
+                    RefBuff stBuff;
+                    if(m_bKeepReadFlag)
+                    {
+                        AutoMutex lk(m_mtxRead);
+                        stBuff =  m_stKeepBuff;
+                    }
+                    if(m_bKeepReadFlag)
+                        StartRead(stBuff,m_bKeepReadFlag);
+                    else 
+                        m_myEpollManager.EpollCtrl(ch,EPOLL_CTL_MOD,EPOLLIN,false);
                     return ;
                 }
 
@@ -704,6 +715,8 @@ namespace sim
                     }
                     if(m_bKeepReadFlag)
                         StartRead(stBuff,m_bKeepReadFlag);
+                    else 
+                        m_myEpollManager.EpollCtrl(ch,EPOLL_CTL_MOD,EPOLLIN,false);
                 }
                 else if(eRet == E_NET_ERROR_DIS_CONNECT)
                 {

@@ -22,7 +22,7 @@ public:
         SIM_LDEBUG("TestPro: OnConnect " << (void*)ch.ref_object().get() << " eConnResult: " << eConnResult);
         sim::RefObject<net::Channel> rch = ch.ref_object();
         RefBuff stTempBuff(10*1024*1024);
-        rch->StartRead(stTempBuff);
+        rch->StartRead(stTempBuff,true);
 
         RefBuff stWriteBuff(1024);
         snprintf(stWriteBuff.get(), stWriteBuff.size(), "%s", "9999999");
@@ -35,7 +35,8 @@ public:
     { 
         SIM_LDEBUG("TestPro: OnAccept " << (void*)ch_srv.ref_object().get() << " ch: " << (void*)ch.ref_object().get());
         sim::RefObject<net::Channel> rch = ch.ref_object();
-        rch->StartRead();
+        RefBuff stTempBuff(10*1024*1024);
+        rch->StartRead(stTempBuff,true);
         m_chs.insert(rch);
         return net::E_NET_ERROR_SUCCESS; 
     }
