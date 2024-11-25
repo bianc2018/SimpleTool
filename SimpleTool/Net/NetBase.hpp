@@ -30,6 +30,7 @@ namespace sim
             E_NET_ERROR_INPROGRESS=-7,//链接中，但是未链接成功
             E_NET_ERROR_DIS_CONNECT=-8,//表示对应的文件描述符被挂断（对方关闭了连接或者进行了异常关闭）
             E_NET_ERROR_USER_CLOSE=-9,//表示对应的文件描述符被用户关闭了
+            E_NET_ERROR_REINIT = -10,//重复初始化
         };
 
         typedef UInt64 TypeNetChannel;

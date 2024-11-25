@@ -1,6 +1,6 @@
-#include "Net/Net.hpp"
 #include "Logger.hpp"
 #include <set>
+#include "Net/AsyncNet.hpp"
 using namespace sim;
 
 struct MyStructComparator {
@@ -8,6 +8,7 @@ struct MyStructComparator {
         return lhs.c_get() < rhs.c_get();
     }
 };
+
 
 class TestPro:public net::Protocol
 {
@@ -69,17 +70,16 @@ private:
 };
 
 
-
+net::AsyncManager<sim::NetManager> myGnet;
 int main(int argc, char* argv[])
 {
     SIM_LOG_CONSOLE(sim::LDebug);
 
-    NetManager net;
-    net.Init();
+    myGnet.Init(6);
 
     sim::RefObject <TestPro> refPro(new TestPro());
-    sim::RefObject<net::Channel> pSrv = net.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro.get());
-    sim::RefObject<net::Channel> pChan=net.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro.get());
+    sim::RefObject<net::Channel> pSrv = myGnet.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro.get());
+    sim::RefObject<net::Channel> pChan=myGnet.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro.get());
 
     net::StruIpAddr stBind;
     stBind.eType = sim::net::E_IP_ADDR_TYPE_IPV4;
@@ -109,8 +109,9 @@ int main(int argc, char* argv[])
     stBind.strIp = "127.0.0.1";
     pChan->StartConnect(stBind);
 
-    net.Poll(10);
+    //net.Poll(10);
 
-    net.UnInit();
+    //net.UnInit();
+    getchar();
     return 0;
 }

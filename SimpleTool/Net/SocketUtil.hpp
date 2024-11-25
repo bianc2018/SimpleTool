@@ -116,9 +116,9 @@
 				static bool IpToSockAddr(const StruIpAddr& stIpAddr, struct sockaddr* p);
 				static bool SockAddrToIp(const struct sockaddr* addr, StruIpAddr& stIpAddr);
 
-				static bool SetNonBlock(SOCKET socket, bool is_non_block);
+				static EnumNetError SetNonBlock(SOCKET socket, bool is_non_block);
 
-				static bool SetReusePort(SOCKET socket, bool set);
+				static EnumNetError SetReusePort(SOCKET socket, bool set);
 
 				//是否为有效套接字
 				static bool IsVaild(SOCKET socket)
@@ -500,7 +500,7 @@
 				static WsInit g_init;
 #endif
 			}
-			inline bool SocketUtil::SetNonBlock(SOCKET socket, bool is_non_block)
+			inline EnumNetError SocketUtil::SetNonBlock(SOCKET socket, bool is_non_block)
 			{
 
 #ifdef OS_WINDOWS
@@ -525,7 +525,7 @@
 #endif
 				return E_NET_ERROR_FAILED;
 			}
-			inline bool SocketUtil::SetReusePort(SOCKET socket, bool set)
+			inline EnumNetError SocketUtil::SetReusePort(SOCKET socket, bool set)
 
 			{
 #ifdef OS_WINDOWS

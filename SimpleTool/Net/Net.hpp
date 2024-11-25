@@ -1,9 +1,6 @@
 /*
 * 网络接口类
 */
-/*
-* 网络工具库的基本头定义
-*/
 #ifndef SIM_NET_HPP_
 #define SIM_NET_HPP_
 #include "Types.hpp"

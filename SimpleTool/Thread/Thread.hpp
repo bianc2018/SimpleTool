@@ -56,6 +56,7 @@ namespace sim
 		HANDLE pth_;
 		unsigned int th_id_;
 		LPVOID lpParam_;
+		//ThreadProc proc_;
 	protected:
 		Thread(const Thread &other) {};
 		Thread operator=(const Thread &other) {};
@@ -76,29 +77,7 @@ namespace sim
 		}
 		Thread(ThreadProc Proc, LPVOID lpParam)
 		{
-			SetParam(lpParam);
-
-#ifdef WIN32
-			//pth_ = CreateThread(NULL, 0, Proc, lpParam, 0, NULL);
-#if 1
-			pth_ = (HANDLE)_beginthreadex(NULL, 0, (_beginthreadex_proc_type)Proc, lpParam, 0, &th_id_);
-#else
-			ThreadData *p = new ThreadData();
-			p->Proc = Proc;
-			p->lpParam = lpParam;
-			pth_ = (HANDLE)_beginthreadex(NULL, 0, ThreadProcAndExit, (void*)p, 0, &th_id_);
-#endif
-#else
-			int err = pthread_create(&pth_, NULL, Proc, lpParam);
-			if (err != 0)
-			{
-				pth_ = INVALID_HANDLE_VALUE;
-			}
-			else
-			{
-				th_id_ = pth_;
-			}
-#endif
+			Run(Proc,lpParam);
 		}
 		
 		virtual ~Thread()
@@ -180,6 +159,37 @@ namespace sim
 		LPVOID GetParam()
 		{
 			return lpParam_;
+		}
+
+		bool Run(ThreadProc Proc, LPVOID lpParam)
+		{
+			SetParam(lpParam);
+
+#ifdef WIN32
+			//pth_ = CreateThread(NULL, 0, Proc, lpParam, 0, NULL);
+#if 1
+			pth_ = (HANDLE)_beginthreadex(NULL, 0, (_beginthreadex_proc_type)Proc, lpParam, 0, &th_id_);
+			return pth_!=NULL;
+#else
+			ThreadData *p = new ThreadData();
+			p->Proc = Proc;
+			p->lpParam = lpParam;
+			pth_ = (HANDLE)_beginthreadex(NULL, 0, ThreadProcAndExit, (void*)p, 0, &th_id_);
+			return pth_!=NULL;
+#endif
+#else
+			int err = pthread_create(&pth_, NULL, Proc, lpParam);
+			if (err != 0)
+			{
+				pth_ = INVALID_HANDLE_VALUE;
+				return false;
+			}
+			else
+			{
+				th_id_ = pth_;
+				return true;
+			}
+#endif
 		}
 	};
 	unsigned int sim::Thread::GetThisThreadId()
