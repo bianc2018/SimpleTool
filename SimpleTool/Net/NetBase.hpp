@@ -78,20 +78,24 @@ namespace sim
             //处理基层协议的回调事件
 
             //链接事件，eConnResult 链接结果
-            virtual void OnConnect(sim::RefWeakObject<Channel> ch, EnumNetError eConnResult) {}
+            virtual void OnConnect(sim::RefObject<Channel> ch, EnumNetError eConnResult) {}
 
             //接受链接事件，ch_srv 接受链接的服务通道，ch 生成的链接
             //E_NET_ERROR_SUCCESS !EnumNetError 协议栈内部回收ch 拒绝链接
-            virtual EnumNetError OnAccept(sim::RefWeakObject<Channel> ch_srv, sim::RefWeakObject<Channel> ch) { return E_NET_ERROR_UNDEF; }
+            virtual EnumNetError OnAccept(sim::RefObject<Channel> ch_srv, sim::RefObject<Channel> ch) { return E_NET_ERROR_UNDEF; }
 
             //链接关闭事件，eCloseResult 关闭原因
-            virtual void OnClose(sim::RefWeakObject<Channel> ch, EnumNetError eCloseResult) {};
+            virtual void OnClose(sim::RefObject<Channel> ch, EnumNetError eCloseResult) {};
 
             //收到报文,stIpAddr 来源地址
-            virtual void OnReaded(sim::RefWeakObject<Channel> ch, RefBuff& stBuff,UInt32 bytes_transfered, StruIpAddr stIpAddr) { return ; };
+            virtual void OnReaded(sim::RefObject<Channel> ch, RefBuff& stBuff,UInt32 bytes_transfered, StruIpAddr stIpAddr) { return ; };
 
             //发送报文成功
-            virtual void OnWrited(sim::RefWeakObject<Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::EnumNetError eWriteResult) { return ; };
+            virtual void OnWrited(sim::RefObject<Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::EnumNetError eWriteResult) { return ; };
+
+            //写数据
+            virtual EnumNetError Write(sim::RefObject<Channel> ch, RefBuff& stBuff, StruIpAddr* stIpAddr = NULL);
+            
         };
 
         //网络通道基类
@@ -163,6 +167,16 @@ namespace sim
 
             //获取当前的通道数量
             virtual UInt64 GetChannelSize() = 0;
+        };
+
+        EnumNetError sim::net::Protocol::Write(sim::RefObject<Channel> ch, RefBuff& stBuff, StruIpAddr* stIpAddr)
+        {
+
+            if (!ch)
+            {
+                return E_NET_ERROR_OBJECT;
+            }
+            return ch->StartWrite(stBuff, stIpAddr);
         };
     }
 }

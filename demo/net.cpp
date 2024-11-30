@@ -18,51 +18,47 @@ public:
 
 public:
     //链接事件，eConnResult 链接结果
-    virtual void OnConnect(sim::RefWeakObject<net::Channel> ch, net::EnumNetError eConnResult)
+    virtual void OnConnect(sim::RefObject<net::Channel> ch, net::EnumNetError eConnResult)
     {
-        SIM_LDEBUG("TestPro: OnConnect " << (void*)ch.ref_object().get() << " eConnResult: " << eConnResult);
-        sim::RefObject<net::Channel> rch = ch.ref_object();
+        SIM_LDEBUG("TestPro: OnConnect " << (void*)ch.get() << " eConnResult: " << eConnResult);
         RefBuff stTempBuff(10*1024*1024);
-        rch->StartRead(stTempBuff,true);
+        ch->StartRead(stTempBuff,true);
 
         RefBuff stWriteBuff(1024);
         snprintf(stWriteBuff.get(), stWriteBuff.size(), "%s", "9999999");
-        rch->StartWrite(stWriteBuff);
+        ch->StartWrite(stWriteBuff);
     }
 
     //接受链接事件，ch_srv 接受链接的服务通道，ch 生成的链接
     //E_NET_ERROR_SUCCESS !EnumNetError 协议栈内部回收ch 拒绝链接
-    virtual net::EnumNetError OnAccept(sim::RefWeakObject<net::Channel> ch_srv, sim::RefWeakObject<net::Channel> ch) 
+    virtual net::EnumNetError OnAccept(sim::RefObject<net::Channel> ch_srv, sim::RefObject<net::Channel> ch)
     { 
-        SIM_LDEBUG("TestPro: OnAccept " << (void*)ch_srv.ref_object().get() << " ch: " << (void*)ch.ref_object().get());
-        sim::RefObject<net::Channel> rch = ch.ref_object();
+        SIM_LDEBUG("TestPro: OnAccept " << (void*)ch_srv.get() << " ch: " << (void*)ch.get());
         RefBuff stTempBuff(10*1024*1024);
-        rch->StartRead(stTempBuff,true);
-        m_chs.insert(rch);
+        ch->StartRead(stTempBuff,true);
+        m_chs.insert(ch);
         return net::E_NET_ERROR_SUCCESS; 
     }
 
     //链接关闭事件，eCloseResult 关闭原因
-    virtual void OnClose(sim::RefWeakObject<net::Channel> ch, net::EnumNetError eCloseResult) {
-        SIM_LDEBUG("TestPro: OnClose " << (void*)ch.ref_object().get() << " eCloseResult: " << eCloseResult);
-        m_chs.erase(ch.ref_object());
+    virtual void OnClose(sim::RefObject<net::Channel> ch, net::EnumNetError eCloseResult) {
+        SIM_LDEBUG("TestPro: OnClose " << (void*)ch.get() << " eCloseResult: " << eCloseResult);
+        m_chs.erase(ch);
     };
 
     //收到报文,stIpAddr 来源地址
-    virtual void OnReaded(sim::RefWeakObject<net::Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::StruIpAddr stIpAddr)
+    virtual void OnReaded(sim::RefObject<net::Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::StruIpAddr stIpAddr)
     { 
         RefBuff stTempBuff(stBuff.get(), bytes_transfered);
-        SIM_LDEBUG("TestPro: OnReaded " << (void*)ch.ref_object().get() <<" bytes_transfered:"<< bytes_transfered/*<<" stBuff: " << stTempBuff.get()*/<<" stIpAddr:"<< stIpAddr.strIp<<":"<< stIpAddr.usPort);
-        sim::RefObject<net::Channel> rch = ch.ref_object();
-        
-        rch->StartWrite(stTempBuff);
+        SIM_LDEBUG("TestPro: OnReaded " << (void*)ch.get() <<" bytes_transfered:"<< bytes_transfered/*<<" stBuff: " << stTempBuff.get()*/<<" stIpAddr:"<< stIpAddr.strIp<<":"<< stIpAddr.usPort);
+        ch->StartWrite(stTempBuff);
         return ; 
     };
 
     //发送报文成功
-    virtual void OnWrited(sim::RefWeakObject<net::Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::EnumNetError eWriteResult)
+    virtual void OnWrited(sim::RefObject<net::Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::EnumNetError eWriteResult)
     { 
-        SIM_LDEBUG("TestPro: OnWrited " << (void*)ch.ref_object().get() << " bytes_transfered:" << bytes_transfered/*<< " stBuff: " << stBuff.get()*/);
+        SIM_LDEBUG("TestPro: OnWrited " << (void*)ch.get() << " bytes_transfered:" << bytes_transfered/*<< " stBuff: " << stBuff.get()*/);
         return ; 
     };
 private:
