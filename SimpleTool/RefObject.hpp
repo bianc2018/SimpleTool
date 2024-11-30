@@ -463,7 +463,7 @@ namespace sim
 			return ptr_[index];
 		}
 
-		virtual unsigned int size()
+		virtual unsigned int size() const 
 		{
 			return buff_size_;
 		}

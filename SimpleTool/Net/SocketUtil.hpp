@@ -126,6 +126,34 @@
 
 					return INVALID_SOCKET != socket;
 				}
+
+				static UInt64 HostToNetwork64(UInt64 host64) {
+					UInt32 high = (UInt32)((host64 >> 32) & 0xFFFFFFFF);
+					UInt32 low = (UInt32)(host64 & 0xFFFFFFFF);
+
+					high = htonl(high);
+					low = htonl(low);
+
+					return ((UInt64)(htonl(high)) << 32) | htonl(low);
+				}
+
+				static UInt64 NetworkToHost64(UInt64 network64) {
+					UInt32 high = (UInt32)((network64 >> 32) & 0xFFFFFFFF);
+					UInt32 low = (UInt32)(network64 & 0xFFFFFFFF);
+
+					high = ntohl(high);
+					low = ntohl(low);
+
+					return ((UInt64)(ntohl(high)) << 32) | ntohl(low);
+				}
+				static bool isLittleEndian() {
+					static union {
+						uint32_t i;
+						char c[4];
+					} test{ 0x01020304 };
+
+					return test.c[0] == 0x04;
+				}
 			private:
 
 			};

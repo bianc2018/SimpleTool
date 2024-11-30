@@ -152,6 +152,8 @@ namespace sim
 
 		static unsigned GetThisThreadId();
 
+		static void Sleep(unsigned int milliseconds);
+
 		void SetParam(LPVOID p)
 		{
 			lpParam_ = p;
@@ -192,12 +194,21 @@ namespace sim
 #endif
 		}
 	};
-	unsigned int sim::Thread::GetThisThreadId()
+	inline unsigned int sim::Thread::GetThisThreadId()
 	{
 #ifdef WIN32
 		return::GetCurrentThreadId();
 #else
 		return pthread_self();
+#endif
+	}
+
+	inline void Thread::Sleep(unsigned int milliseconds)
+	{
+#ifdef OS_WINDOWS
+		::Sleep(milliseconds);
+#else
+		usleep(milliseconds * 1000); // ½«ºÁÃë×ª»»ÎªÎ¢Ãë
 #endif
 	}
 }

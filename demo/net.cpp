@@ -62,7 +62,7 @@ public:
         return ; 
     };
 private:
-    std::set< sim::RefObject<net::Channel>, MyStructComparator > m_chs;
+    tSet< sim::RefObject<net::Channel>, MyStructComparator > m_chs;
 };
 
 
@@ -73,9 +73,9 @@ int main(int argc, char* argv[])
 
     myGnet.Init(6);
 
-    sim::RefObject <TestPro> refPro(new TestPro());
-    sim::RefObject<net::Channel> pSrv = myGnet.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro.get());
-    sim::RefObject<net::Channel> pChan=myGnet.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro.get());
+    sim::RefObject <net::Protocol> refPro(new TestPro());
+    sim::RefObject<net::Channel> pSrv = myGnet.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro);
+    sim::RefObject<net::Channel> pChan=myGnet.CreateChannel(SIM_NET_CHANNEL_TYPE_TCP, refPro);
 
     net::StruIpAddr stBind;
     stBind.eType = sim::net::E_IP_ADDR_TYPE_IPV4;

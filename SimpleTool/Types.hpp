@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <list>
+#include <set>
+#include <map>
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
     #ifndef OS_WINDOWS
         #define OS_WINDOWS
@@ -40,5 +42,7 @@ namespace sim
     typedef std::string     String;
     #define tVector         std::vector
     #define tList           std::list
+    #define tSet            std::set
+    #define tMap            std::map
 }
 #endif

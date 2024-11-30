@@ -106,7 +106,7 @@ namespace sim
         {
         public:
             //切换通道绑定的协议
-            virtual EnumNetError Switch(Protocol* pro) = 0;
+            virtual EnumNetError Switch(sim::RefObject <Protocol> pro) = 0;
 
             //网络接口
             //接收一个 StruIpAddr 类型的参数，返回一个 EnumNetError 类型的值
@@ -153,7 +153,7 @@ namespace sim
             //typeflag  类型，见SIM_NET_CHANNEL_TYPE_定义
             //pro       在这个通道上面的网络协议，可以为空
             //创建失败返回空
-            virtual RefObject<Channel> CreateChannel(TypeNetChannel typeflag, Protocol* pro = NULL) = 0;
+            virtual RefObject<Channel> CreateChannel(TypeNetChannel typeflag, sim::RefObject <Protocol>) = 0;
 
             //主动解绑通道，Manager不再管理这个通道，之后ch不可用
             virtual EnumNetError UnBindChannel(RefObject<Channel> ch) = 0;

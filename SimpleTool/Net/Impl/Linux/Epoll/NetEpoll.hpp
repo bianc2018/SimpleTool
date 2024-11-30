@@ -73,7 +73,7 @@ namespace sim
             virtual ~EpollChannel();
 
             //切换通道绑定的协议
-            virtual EnumNetError Switch(Protocol* pro);
+            virtual EnumNetError Switch(sim::RefObject <Protocol> pro);
 
             //网络接口
             //接收一个 StruIpAddr 类型的参数，返回一个 EnumNetError 类型的值
@@ -129,7 +129,7 @@ namespace sim
             virtual void InnerClose(EnumNetError eRet);
         private:
             TypeNetChannel m_Typeflag;
-            Protocol* m_pPro;
+            sim::RefObject <Protocol> m_pPro;
             EpollManager& m_myEpollManager;
             SOCKET m_socket;
             myEpollEvent m_stEvent;
@@ -173,7 +173,7 @@ namespace sim
             //typeflag  类型，见SIM_NET_CHANNEL_TYPE_定义
             //pro       在这个通道上面的网络协议，可以为空
             //创建失败返回空
-            virtual sim::RefObject<Channel> CreateChannel(TypeNetChannel typeflag, Protocol* pro = NULL);
+            virtual sim::RefObject<Channel> CreateChannel(TypeNetChannel typeflag, sim::RefObject <Protocol> pro );
 
             virtual sim::RefObject<EpollChannel> CreateChannelBySocket(SOCKET sock);
 
@@ -243,7 +243,7 @@ namespace sim
             }
             return E_NET_ERROR_SUCCESS;
         }
-        inline sim::RefObject<Channel> EpollManager::CreateChannel(TypeNetChannel typeflag, Protocol* pro)
+        inline sim::RefObject<Channel> EpollManager::CreateChannel(TypeNetChannel typeflag, sim::RefObject<Protocol> pro)
         {
             if (-1 == m_FdEpoll|| m_bExitflag)
             {
@@ -432,7 +432,7 @@ namespace sim
             m_myEpollManager.DecChannelSize();
         }
 
-        inline EnumNetError EpollChannel::Switch(Protocol* pro)
+        inline EnumNetError EpollChannel::Switch(sim::RefObject <Protocol> pro)
         {
             m_pPro = pro;
             return E_NET_ERROR_SUCCESS;
@@ -451,7 +451,14 @@ namespace sim
             //udp绑定的时候就已经完成链接
             if(!(m_Typeflag&SIM_NET_CHANNEL_TYPE_TCP))
             {
-                m_bConnectFlag = true;
+                if (m_pPro)
+                {
+                    m_pPro->OnConnect(sim::reinterpret_pointer_cast<Channel>(GetEvent().pWeakCh.ref_object()), eRet);
+                }
+                if (eRet == E_NET_ERROR_SUCCESS)
+                {
+                    m_bConnectFlag = true;
+                }
             }
             return eRet;
         }

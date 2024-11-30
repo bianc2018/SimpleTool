@@ -39,7 +39,7 @@ namespace sim
             //typeflag  类型，见SIM_NET_CHANNEL_TYPE_定义
             //pro       在这个通道上面的网络协议，可以为空
             //创建失败返回空
-            virtual RefObject<Channel> CreateChannel(TypeNetChannel typeflag, Protocol* pro = NULL);
+            virtual RefObject<Channel> CreateChannel(TypeNetChannel typeflag, sim::RefObject <Protocol> );
 
             static ThRet MyThreadProc(LPVOID lpParam);
         private:
@@ -98,7 +98,7 @@ namespace sim
             return E_NET_ERROR_SUCCESS;
         }
         template <typename ManagerClass>
-        inline RefObject<Channel> AsyncManager<ManagerClass>::CreateChannel(TypeNetChannel typeflag, Protocol *pro)
+        inline RefObject<Channel> AsyncManager<ManagerClass>::CreateChannel(TypeNetChannel typeflag, sim::RefObject <Protocol> pro)
         {
              if(!m_pManagerData)
                 return  NULL;
