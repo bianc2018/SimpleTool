@@ -56,9 +56,9 @@ public:
     };
 
     //发送报文成功
-    virtual void OnWrited(sim::RefObject<net::Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::EnumNetError eWriteResult)
+    virtual void OnWrited(sim::RefObject<net::Channel> ch, RefBuff& stBuff, UInt32 offset, UInt32 bytes_transfered, net::EnumNetError eWriteResult)
     { 
-        SIM_LDEBUG("TestPro: OnWrited " << (void*)ch.get() << " bytes_transfered:" << bytes_transfered/*<< " stBuff: " << stBuff.get()*/);
+        SIM_LDEBUG("TestPro: OnWrited " << (void*)ch.get() << ",offset:"<< offset<<" bytes_transfered:" << bytes_transfered/*<< " stBuff: " << stBuff.get()*/);
         return ; 
     };
 private:

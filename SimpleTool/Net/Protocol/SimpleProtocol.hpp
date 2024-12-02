@@ -82,7 +82,7 @@ namespace sim
             //E_NET_ERROR_SUCCESS !EnumNetError 协议栈内部回收ch 拒绝链接
             virtual EnumNetError OnAccept(sim::RefObject<Channel> ch_srv, sim::RefObject<Channel> ch)
             {
-                SIM_LDEBUG("TCPSrvProtocol: OnAccept " << (void*)ch_srv.get() << " ch: " << (void*)ch.get());
+                SIM_LINFO("TCPSrvProtocol: OnAccept " << (void*)ch_srv.get() << " ch: " << (void*)ch.get());
                 
                 {
                     AutoMutex lk(m_mtxchs);
@@ -98,7 +98,7 @@ namespace sim
             //链接关闭事件，eCloseResult 关闭原因
             virtual void OnClose(sim::RefObject<Channel> ch, EnumNetError eCloseResult)
             {
-                SIM_LDEBUG("TCPSrvProtocol: OnClose " << (void*)ch.get() << " eCloseResult: " << eCloseResult);
+                SIM_LINFO("TCPSrvProtocol: OnClose " << (void*)ch.get() << " eCloseResult: " << eCloseResult);
                 CloseChn(ch);
             }
 
@@ -122,6 +122,7 @@ namespace sim
 
             virtual void OnPack(sim::RefObject<Channel> ch, const SimplePack& pack, StruIpAddr stIpAddr)
             {
+                SIM_LINFO("SimpleProtocol: OnPack " << (void*)ch.get() << " type: " << (Int32)pack.type<<" seq:"<< pack.seq);
                 if (pack.type == 2)
                 {
                     //缓存
@@ -201,6 +202,7 @@ namespace sim
             //链接事件，eConnResult 链接结果
             virtual void OnConnect(sim::RefObject<Channel> ch, EnumNetError eConnResult)
             {
+                SIM_LINFO("SimpleProtocol: OnConnect " << (void*)ch.get() << " eConnResult: " << eConnResult);
                 //链接成功之后，马上进行读数据
                 RefBuff stTempBuff(10 * 1024 * 1024);
                 ch->StartRead(stTempBuff, true);
@@ -211,10 +213,16 @@ namespace sim
             //收到报文,stIpAddr 来源地址
             virtual void OnReaded(sim::RefObject<Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, StruIpAddr stIpAddr)
             {
+                SIM_LINFO("SimpleProtocol: OnReaded " << (void*)ch.get() << " bytes_transfered: "<< bytes_transfered);
                 m_stCacheBuff = m_stCacheBuff + RefBuff(stBuff.get(), bytes_transfered);
                 DoParse(ch, stIpAddr);
             }
 
+            //发送报文成功
+            virtual void OnWrited(sim::RefObject<Channel> ch, RefBuff& stBuff, UInt32 offset, UInt32 bytes_transfered, net::EnumNetError eWriteResult)
+            {
+                SIM_LINFO("SimpleProtocol: OnWrited " << (void*)ch.get() << "offset:"<< offset <<" bytes_transfered: " << bytes_transfered);
+            }
         protected:
             inline UInt8 CheckSum(const char* pData, UInt64 len)
             {
@@ -255,6 +263,7 @@ namespace sim
                         UInt8 check2 = CheckSum(pData, packlen - 1);
                         if (check1 != check2)
                         {
+                            SIM_LINFO("SimpleProtocol: DoParse " << (void*)ch.get() << " check1 error");
                             //错误的节点
                             pData++;
                             nUsed++;

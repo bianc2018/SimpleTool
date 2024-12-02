@@ -91,7 +91,7 @@ namespace sim
             virtual void OnReaded(sim::RefObject<Channel> ch, RefBuff& stBuff,UInt32 bytes_transfered, StruIpAddr stIpAddr) { return ; };
 
             //发送报文成功
-            virtual void OnWrited(sim::RefObject<Channel> ch, RefBuff& stBuff, UInt32 bytes_transfered, net::EnumNetError eWriteResult) { return ; };
+            virtual void OnWrited(sim::RefObject<Channel> ch, RefBuff& stBuff, UInt32 offset, UInt32 bytes_transfered, net::EnumNetError eWriteResult) { return ; };
 
             //写数据
             virtual EnumNetError Write(sim::RefObject<Channel> ch, RefBuff& stBuff, StruIpAddr* stIpAddr = NULL);
@@ -135,7 +135,9 @@ namespace sim
 
             //是否已经链接
             virtual bool IsConnect() = 0;
-            //是否
+            
+            //设置MTU 当报文大于MTU将会分片发送 ==0标识底下不自动分片
+            virtual bool SetAutoMTU(UInt32 mtu = 0) { return false; };
         private:
 
         };

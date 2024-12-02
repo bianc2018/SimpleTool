@@ -781,7 +781,7 @@ namespace sim
                     {
                         if (m_pPro)
                         {
-                            m_pPro->OnWrited(sim::reinterpret_pointer_cast<Channel>(ch), pstWriteObj->stBuff,pstWriteObj->uWriteOffset,eRet);
+                            m_pPro->OnWrited(sim::reinterpret_pointer_cast<Channel>(ch), pstWriteObj->stBuff,pstWriteObj->uWriteOffset, bytes_transfered,eRet);
                         }
 
                         {
@@ -793,18 +793,18 @@ namespace sim
                     }
                     else
                     {
-                        pstWriteObj->uWriteOffset+=bytes_transfered;
-                        if(pstWriteObj->stBuff.size()<=pstWriteObj->uWriteOffset)
+                        if(pstWriteObj->stBuff.size()<=pstWriteObj->uWriteOffset+ bytes_transfered)
                         {
                             if (m_pPro)
                             {
-                                m_pPro->OnWrited(sim::reinterpret_pointer_cast<Channel>(ch), pstWriteObj->stBuff,pstWriteObj->uWriteOffset,eRet);
+                                m_pPro->OnWrited(sim::reinterpret_pointer_cast<Channel>(ch), pstWriteObj->stBuff,pstWriteObj->uWriteOffset, bytes_transfered,eRet);
                             }
                             //写完了
                             AutoMutex lk(m_mtxWrite);
                             m_qWrite.PopFront(NULL);
                             return ;
                         }
+                        pstWriteObj->uWriteOffset += bytes_transfered;
                         //没有写完，下次继续
                     }
                 }

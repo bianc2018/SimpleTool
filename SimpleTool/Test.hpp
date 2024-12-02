@@ -75,9 +75,12 @@ private:\
 bool SIM_TEST_CLASS(name)::add_method = SIM_ADD_TEST_CLASS(SIM_TEST_CLASS(name));\
 void SIM_TEST_CLASS(name)::TestBody()
 
+#define SIM_TEST_OFF(name) void SIM_TEST_CLASS(name)_OFF()
+
 #define SIM_TEST_LEVEL(lv) ::sim::UnitTest::Instance().verboseLevel(lv)
 #define SIM_TEST_RUN_ALL(c,v) ::sim::UnitTest::Instance().run(c,v)
 #define SIM_TEST_MAIN(lv) int main(int argc,char*argv[]){\
+		/*SIM_LOG_CONSOLE(sim::LDebug);*/\
 		SIM_TEST_LEVEL(lv);\
 		return SIM_TEST_RUN_ALL(argc,argv);\
     }

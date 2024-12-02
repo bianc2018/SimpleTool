@@ -96,6 +96,9 @@ namespace sim
             //传输的字节数目
             DWORD bytes_transfered;
 
+            //传输偏移，相对于buff
+            UInt32 offset;
+
             //地址 用于SendTo or Recvfrom
             struct sockaddr_in6 temp_addr;
             int temp_addr_len;
@@ -104,6 +107,7 @@ namespace sim
 
             //异步操作结果
             EnumNetError eRet;
+
             //初始化
             IocpNetEvent(RefObject<IocpChannel> refChanel_) :bytes_transfered(0)
                 , refChannel(refChanel_)
@@ -171,6 +175,11 @@ namespace sim
                 return m_socket != INVALID_SOCKET && m_bConnectFlag;
             }
 
+            virtual bool SetAutoMTU(UInt32 mtu = 0)
+            {
+                m_nMtu = mtu;
+                return true;
+            }
         private:
             //网络事件
             virtual EnumNetError HandleEvent(IocpNetEvent* pE);
@@ -196,6 +205,8 @@ namespace sim
             bool m_bConnectFlag;
             bool m_bListenFlag;
             bool m_bKeepReadFlag;
+
+            UInt32 m_nMtu;
         };
 
 
@@ -462,6 +473,7 @@ namespace sim
             , m_bConnectFlag(false)
             , m_bKeepReadFlag(false)
             , m_bListenFlag(false)
+            , m_nMtu(0)
         {
             m_myIocpManager.IncChannelSize();
         }
@@ -674,54 +686,80 @@ namespace sim
                 return E_NET_ERROR_OBJECT;
             }
 
-            //新建事件
-            IocpNetEvent* e = new IocpNetEvent(refSelf);
-            if (NULL == e)
-            {
-                SIM_LERROR("create IocpNetEvent error ");
-                return E_NET_ERROR_NEW_BUFF;
-            }
+            UInt64 nOffset = 0;
 
-            OVERLAPPED* pol = &e->overlapped;
-            e->type = IOCPSend;
-            DWORD dwFlags = 0;
-            e->buff = stBuff;
-            e->wsa_buf.buf = stBuff.get();
-            e->wsa_buf.len = stBuff.size();
-            DWORD* bytes_transfered = &e->bytes_transfered;
-
-            if (stIpAddr)
+            do
             {
-                if (!SocketUtil::IpToSockAddr(*stIpAddr, (struct sockaddr*)&e->temp_addr))
+                //新建事件
+                IocpNetEvent* e = new IocpNetEvent(refSelf);
+                if (NULL == e)
                 {
-                    delete e;
-                    return E_NET_ERROR_PARAM;
+                    SIM_LERROR("create IocpNetEvent error ");
+                    return E_NET_ERROR_NEW_BUFF;
                 }
 
-                //这里使用WSASendTo接口
-                int res = WSASendTo(m_socket, &e->wsa_buf, 1,
-                    bytes_transfered, dwFlags, (struct sockaddr*)&e->temp_addr, e->temp_addr_len, pol, nullptr);
-
-                if ((SOCKET_ERROR == res) && (WSA_IO_PENDING != WSAGetLastError())) {
-                    delete e;
-                    SIM_LERROR("WSASend error res=" << res << "  WSAGetLastError()=" << WSAGetLastError());
-                    return E_NET_ERROR_FAILED;
+                OVERLAPPED* pol = &e->overlapped;
+                e->type = IOCPSend;
+                DWORD dwFlags = 0;
+                e->buff = stBuff;
+                e->wsa_buf.buf = stBuff.get()+ nOffset;
+                e->offset = nOffset;
+                if (m_nMtu == 0)
+                {
+                    e->wsa_buf.len = stBuff.size();
                 }
-                return E_NET_ERROR_SUCCESS;
-            }
-            else
-            {
-                //发送请求
-                int res = WSASend(m_socket, &e->wsa_buf, 1,
-                    bytes_transfered, dwFlags, pol, nullptr);
-
-                if ((SOCKET_ERROR == res) && (WSA_IO_PENDING != WSAGetLastError())) {
-                    delete e;//失败删除事件
-                    SIM_LERROR(m_socket << " WSASend error res=" << res << "  WSAGetLastError()=" << WSAGetLastError());
-                    return E_NET_ERROR_FAILED;
+                else
+                {
+                    UInt64 leftsize = stBuff.size() - nOffset;
+                    if (leftsize > m_nMtu)
+                    {
+                        e->wsa_buf.len = m_nMtu;
+                    }
+                    else
+                    {
+                        e->wsa_buf.len = leftsize;
+                    }
                 }
-                return E_NET_ERROR_SUCCESS;
-            }
+
+                nOffset += e->wsa_buf.len;
+
+                DWORD* bytes_transfered = &e->bytes_transfered;
+
+                if (stIpAddr)
+                {
+                    if (!SocketUtil::IpToSockAddr(*stIpAddr, (struct sockaddr*)&e->temp_addr))
+                    {
+                        delete e;
+                        return E_NET_ERROR_PARAM;
+                    }
+
+                    //这里使用WSASendTo接口
+                    int res = WSASendTo(m_socket, &e->wsa_buf, 1,
+                        bytes_transfered, dwFlags, (struct sockaddr*)&e->temp_addr, e->temp_addr_len, pol, nullptr);
+
+                    if ((SOCKET_ERROR == res) && (WSA_IO_PENDING != WSAGetLastError())) {
+                        delete e;
+                        SIM_LERROR("WSASend error res=" << res << "  WSAGetLastError()=" << WSAGetLastError());
+                        return E_NET_ERROR_FAILED;
+                    }
+                }
+                else
+                {
+                    //发送请求
+                    int res = WSASend(m_socket, &e->wsa_buf, 1,
+                        bytes_transfered, dwFlags, pol, nullptr);
+
+                    if ((SOCKET_ERROR == res) && (WSA_IO_PENDING != WSAGetLastError())) {
+                        delete e;//失败删除事件
+                        SIM_LERROR(m_socket << " WSASend error res=" << res << "  WSAGetLastError()=" << WSAGetLastError());
+                        return E_NET_ERROR_FAILED;
+                    }
+                    
+                }
+
+                if (nOffset >= stBuff.size())
+                    return E_NET_ERROR_SUCCESS;
+            } while (true);
         }
 
         inline EnumNetError IocpChannel::StartRead(RefBuff stBuff, bool bKeep)
@@ -836,6 +874,7 @@ namespace sim
                 {
                     pChan->Switch(m_pPro);
                     pChan->m_Typeflag = m_Typeflag;
+                    pChan->SetAutoMTU(m_nMtu);//继承
                     EnumNetError eAcceptError=m_pPro->OnAccept(sim::reinterpret_pointer_cast<Channel>(m_pSelf.ref_object())
                         , sim::reinterpret_pointer_cast<Channel>(pChan));
                     if (eAcceptError != E_NET_ERROR_SUCCESS)
@@ -914,7 +953,7 @@ namespace sim
         {
             if (m_pPro)
             {
-                m_pPro->OnWrited(sim::reinterpret_pointer_cast<Channel>(m_pSelf.ref_object()), pE->buff, pE->bytes_transfered, pE->eRet);
+                m_pPro->OnWrited(sim::reinterpret_pointer_cast<Channel>(m_pSelf.ref_object()), pE->buff, pE->offset, pE->bytes_transfered, pE->eRet);
             }
             return E_NET_ERROR_SUCCESS;
         }
